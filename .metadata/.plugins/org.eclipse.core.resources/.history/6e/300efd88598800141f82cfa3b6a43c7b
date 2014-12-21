@@ -1,0 +1,478 @@
+package fr.mla.swt.smart.viewer.ui;
+
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.ControlEvent;
+import org.eclipse.swt.events.ControlListener;
+import org.eclipse.swt.events.MouseEvent;
+import org.eclipse.swt.events.MouseListener;
+import org.eclipse.swt.events.MouseMoveListener;
+import org.eclipse.swt.events.MouseTrackListener;
+import org.eclipse.swt.events.MouseWheelListener;
+import org.eclipse.swt.events.PaintEvent;
+import org.eclipse.swt.events.PaintListener;
+import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.Point;
+import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.Canvas;
+import org.eclipse.swt.widgets.Composite;
+
+import fr.mla.swt.smart.viewer.Activator;
+import fr.mla.swt.smart.viewer.model.OrientationType;
+
+public abstract class VirtualScroll2 extends Canvas implements
+		MouseMoveListener, MouseListener, MouseTrackListener,
+		MouseWheelListener {
+
+	private int value = 0;
+	private int max = 0;
+	private int thumb = 5;
+	private Rectangle thumbBounds = new Rectangle(0, 0, 0, 0);
+	private Rectangle prevArrowBounds = new Rectangle(0, 0, 0, 0);
+	private Rectangle nextArrowBounds = new Rectangle(0, 0, 0, 0);
+	private Rectangle startArrowBounds = new Rectangle(0, 0, 0, 0);
+	private Rectangle endArrowBounds = new Rectangle(0, 0, 0, 0);
+	private final OrientationType type;
+	private Point clickedPoint;
+	private Point size = new Point(0, 0);
+	private Image prevImage;
+	private Image nextImage;
+	private Image startImage;
+	private Image endImage;
+
+	private Color backgroundColor;
+
+	MouseClickTimer clickTimer = new MouseClickTimer(300, 100, 50, 10) {
+
+		@Override
+		protected void changed(MouseEvent e) {
+			Point p = toControl(getDisplay().getCursorLocation());
+			if (prevArrowBounds.contains(p.x, p.y)) {
+				previous();
+			} else if (nextArrowBounds.contains(p.x, p.y)) {
+				next();
+			} else {
+				stop();
+			}
+		}
+	};
+
+	public VirtualScroll2(Composite parent, OrientationType type) {
+		super(parent, SWT.DOUBLE_BUFFERED);
+		setDragDetect(false);
+		this.type = type;
+
+		if (type == OrientationType.HORIZONTAL) {
+			prevImage = Activator.getImage("round_arrow_left.png");
+			nextImage = Activator.getImage("round_arrow_right.png");
+			startImage = Activator.getImage("round_arrow_left_start.png");
+			endImage = Activator.getImage("round_arrow_right_end.png");
+		} else {
+			prevImage = Activator.getImage("round_arrow_up.png");
+			nextImage = Activator.getImage("round_arrow_down.png");
+			startImage = Activator.getImage("round_arrow_up_start.png");
+			endImage = Activator.getImage("round_arrow_down_end.png");
+		}
+
+		addMouseListener(this);
+		addMouseMoveListener(this);
+		addMouseTrackListener(this);
+		// addMouseWheelListener(this);
+
+		addPaintListener(new PaintListener() {
+
+			@Override
+			public void paintControl(PaintEvent e) {
+				Image img = new Image(e.display, new Rectangle(0, 0, e.width,
+						e.height));
+				GC gc = new GC(img);
+				try {
+					gc.setAdvanced(true);
+					gc.setAntialias(SWT.ON);
+					gc.setInterpolation(SWT.HIGH);
+					draw(gc, e.x, e.y);
+				} catch (Exception ex) {
+					ex.printStackTrace();
+				} finally {
+					e.gc.drawImage(img, e.x, e.y);
+					img.dispose();
+					gc.dispose();
+				}
+			}
+		});
+
+		addControlListener(new ControlListener() {
+
+			@Override
+			public void controlResized(ControlEvent e) {
+				size = getSize();
+			}
+
+			@Override
+			public void controlMoved(ControlEvent e) {
+
+			}
+		});
+	}
+
+	public void draw(GC gc, int xx, int yy) {
+		Color bg = gc.getBackground();
+		Color fg = gc.getForeground();
+		try {
+			if (backgroundColor != null) {
+				gc.setBackground(backgroundColor);
+			}
+			if (type == OrientationType.HORIZONTAL) {
+				gc.fillRoundRectangle(thumbBounds.x - xx, thumbBounds.y - yy,
+						thumbBounds.width, thumbBounds.height, 10, 10);
+
+				prevArrowBounds.width = size.y;
+				prevArrowBounds.height = size.y;
+				nextArrowBounds.width = size.y;
+				nextArrowBounds.height = size.y;
+				startArrowBounds.width = size.y;
+				startArrowBounds.height = size.y;
+				endArrowBounds.width = size.y;
+				endArrowBounds.height = size.y;
+
+				endArrowBounds.x = size.x - size.y;
+				prevArrowBounds.x = startArrowBounds.x + startArrowBounds.width;
+				nextArrowBounds.x = endArrowBounds.x - nextArrowBounds.width;
+			} else {
+				gc.fillRoundRectangle(thumbBounds.x - xx, thumbBounds.y - yy,
+						thumbBounds.width, thumbBounds.height, 10, 10);
+
+				prevArrowBounds.width = size.x;
+				prevArrowBounds.height = size.x;
+				nextArrowBounds.width = size.x;
+				nextArrowBounds.height = size.x;
+				startArrowBounds.width = size.x;
+				startArrowBounds.height = size.x;
+				endArrowBounds.width = size.x;
+				endArrowBounds.height = size.x;
+
+				endArrowBounds.y = size.y - size.x;
+				prevArrowBounds.y = startArrowBounds.y
+						+ startArrowBounds.height;
+				nextArrowBounds.y = endArrowBounds.y - nextArrowBounds.height;
+			}
+			drawImage(gc, startImage, startArrowBounds, xx, yy);
+			drawImage(gc, prevImage, prevArrowBounds, xx, yy);
+			drawImage(gc, nextImage, nextArrowBounds, xx, yy);
+			drawImage(gc, endImage, endArrowBounds, xx, yy);
+		} finally {
+			gc.setBackground(bg);
+			gc.setForeground(fg);
+		}
+	}
+
+	private void drawImage(GC gc, Image image, Rectangle bounds, int xx, int yy) {
+		gc.drawImage(image, 0, 0, 16, 16, bounds.x - xx, bounds.y - yy,
+				bounds.width, bounds.height);
+	}
+
+	public void redrawAll() {
+		if (!isDisposed()) {
+			redraw();
+			update();
+		}
+	}
+
+	public int getThumb() {
+		return thumb;
+	}
+
+	public Rectangle getThumbBounds() {
+		return thumbBounds;
+	}
+
+	@Override
+	public void setBackground(Color color) {
+		backgroundColor = color;
+	}
+
+	public void setMax(int max) {
+		size = getSize();
+		if (max > 0) {
+			this.max = max;
+			int visibleSize = type == OrientationType.HORIZONTAL ? size.x
+					: size.y;
+			this.thumb = visibleSize * visibleSize / max;
+			if (thumb == 0) {
+				thumb = 1;
+			}
+			computeThumbSize();
+			computeThumbLocation();
+		}
+	}
+
+	public int getMax() {
+		return max;
+	}
+
+	public int getMaxValue() {
+		int visibleSize = type == OrientationType.HORIZONTAL ? size.x : size.y;
+		return max - visibleSize;
+	}
+
+	public void setValue(int value) {
+		int v = value;
+		int visibleSize = type == OrientationType.HORIZONTAL ? size.x : size.y;
+		if (visibleSize > max) {
+			v = 0;
+		} else if (v < 0) {
+			v = 0;
+		} else if (v > max - visibleSize) {
+			v = max - visibleSize;
+		}
+		if (this.value != v) {
+			this.value = v;
+			computeThumbLocation();
+		}
+	}
+
+	private void computeThumbLocation() {
+		if (type == OrientationType.HORIZONTAL) {
+			thumbBounds.x = (size.x > 4 * size.y) ? (value
+					* (size.x - 4 * size.y) / max)
+					+ 2 * size.y : 2 * size.y;
+			thumbBounds.y = 1;
+		} else {
+			thumbBounds.x = 1;
+			thumbBounds.y = (size.y > 4 * size.x) ? (value
+					* (size.y - 4 * size.x) / max)
+					+ 2 * size.x : 2 * size.x;
+		}
+	}
+
+	private void computeThumbSize() {
+		if (type == OrientationType.HORIZONTAL) {
+			thumbBounds.width = size.x > 0 ? Math.max(5, thumb
+					* (size.x - 4 * size.y) / size.x) : 0;
+			thumbBounds.height = size.y - 2;
+		} else {
+			thumbBounds.height = size.y > 0 ? Math.max(5, thumb
+					* (size.y - 4 * size.x) / size.y) : 0;
+			thumbBounds.width = size.x - 2;
+		}
+	}
+
+	public void scrollTo(Rectangle bounds, Point spacing) {
+		if (type == OrientationType.HORIZONTAL) {
+			if (value + size.x < bounds.x + bounds.width) {
+				value += (bounds.x + bounds.width) - (value + size.x)
+						+ spacing.x;
+				computeThumbLocation();
+				scrolled();
+				redrawAll();
+			} else if (bounds.x < value) {
+				value = bounds.x - spacing.x;
+				computeThumbLocation();
+				scrolled();
+				redrawAll();
+			}
+		} else {
+			if (value + size.y < bounds.y + bounds.height) {
+				value += (bounds.y + bounds.height) - (value + size.y)
+						+ spacing.y;
+				computeThumbLocation();
+				scrolled();
+				redrawAll();
+			} else if (bounds.y < value) {
+				value = bounds.y - spacing.y;
+				computeThumbLocation();
+				scrolled();
+				redrawAll();
+			}
+		}
+	}
+
+	public void goToEnd() {
+		if (!isDisposed()) {
+			setValue(max);
+			scrolled();
+			redrawAll();
+		}
+	}
+
+	public void scrollIn(int shift) {
+		if (shift != 0) {
+			int visibleSize = type == OrientationType.HORIZONTAL ? size.x - 2
+					* size.y : size.y - 2 * size.x;
+			int v = this.value + (shift * visibleSize / thumb);
+			setValue(v);
+		}
+	}
+
+	public void fastScroll(int shift) {
+		if (shift > 0 && this.value == getMaxValue()) {
+			return;
+		}
+		if (shift != 0) {
+			setValue(this.value + shift);
+		}
+	}
+
+	protected void scrolled() {
+
+	}
+
+	abstract protected void previous();
+
+	abstract protected void next();
+
+	protected void nextPage() {
+
+	}
+
+	protected void previousPage() {
+
+	}
+
+	public int getValue() {
+		return value;
+	}
+
+	@Override
+	public void mouseScrolled(MouseEvent e) {
+		if (!isDisposed()) {
+			scrollIn(-e.count * 3);
+			redrawAll();
+			scrolled();
+		}
+	}
+
+	@Override
+	public void mouseDoubleClick(MouseEvent e) {
+
+	}
+
+	@Override
+	public void mouseDown(MouseEvent e) {
+		if (thumbBounds.contains(e.x, e.y)) {
+			clickedPoint = new Point(e.x, e.y);
+		}
+		if (prevArrowBounds.contains(e.x, e.y)
+				|| nextArrowBounds.contains(e.x, e.y)) {
+			clickTimer.mouseDown(e);
+		}
+	}
+
+	@Override
+	public void mouseUp(MouseEvent e) {
+		if (isDisposed()) {
+			return;
+		}
+		if (prevArrowBounds.contains(e.x, e.y)) {
+			previous();
+			clickTimer.mouseUp(e);
+		} else if (nextArrowBounds.contains(e.x, e.y)) {
+			next();
+			clickTimer.mouseUp(e);
+		} else if (startArrowBounds.contains(e.x, e.y)) {
+			resetScroll();
+		} else if (endArrowBounds.contains(e.x, e.y)) {
+			goToEnd();
+		} else if (clickedPoint == null) {
+			if (type == OrientationType.HORIZONTAL) {
+				if (e.x < thumbBounds.x) {
+					previousPage();
+				} else if (e.x > thumbBounds.x + thumbBounds.width) {
+					nextPage();
+				}
+			} else {
+				if (e.y < thumbBounds.y) {
+					previousPage();
+				} else if (e.y > thumbBounds.y + thumbBounds.height) {
+					nextPage();
+				}
+			}
+			redrawAll();
+			scrolled();
+		}
+		if (thumbBounds.contains(e.x, e.y)
+				|| prevArrowBounds.contains(e.x, e.y)
+				|| nextArrowBounds.contains(e.x, e.y)) {
+			setCursor(getDisplay().getSystemCursor(SWT.CURSOR_HAND));
+		} else {
+			setCursor(null);
+		}
+		clickedPoint = null;
+		setFocus();
+	}
+
+	@Override
+	public void mouseMove(MouseEvent e) {
+		if (isDisposed()) {
+			return;
+		}
+		if (clickedPoint != null) {
+			int d = 0;
+			if (type == OrientationType.HORIZONTAL) {
+				d = e.x - clickedPoint.x;
+				clickedPoint.x = e.x;
+			} else {
+				d = e.y - clickedPoint.y;
+				clickedPoint.y = e.y;
+			}
+			scrollIn(d);
+			redrawAll();
+			scrolled();
+		}
+		if (thumbBounds.contains(e.x, e.y)
+				|| prevArrowBounds.contains(e.x, e.y)
+				|| nextArrowBounds.contains(e.x, e.y)) {
+			setCursor(getDisplay().getSystemCursor(SWT.CURSOR_HAND));
+		} else {
+			setCursor(null);
+		}
+	}
+
+	public Point getScrollSize() {
+		return size;
+	}
+
+	@Override
+	public void mouseEnter(MouseEvent e) {
+		if (isDisposed()) {
+			return;
+		}
+		if (thumbBounds.contains(e.x, e.y)
+				|| prevArrowBounds.contains(e.x, e.y)
+				|| nextArrowBounds.contains(e.x, e.y)) {
+			setCursor(getDisplay().getSystemCursor(SWT.CURSOR_HAND));
+		} else {
+			setCursor(null);
+		}
+	}
+
+	@Override
+	public void mouseExit(MouseEvent e) {
+		if (isDisposed()) {
+			return;
+		}
+		setCursor(null);
+	}
+
+	@Override
+	public void mouseHover(MouseEvent e) {
+
+	}
+
+	public void resetScroll() {
+		setValue(0);
+		if (!isDisposed()) {
+			scrolled();
+			redrawAll();
+		}
+	}
+
+	@Override
+	public void redraw() {
+		if (!isDisposed()) {
+			super.redraw();
+		}
+	}
+
+}

@@ -1,0 +1,72 @@
+package fr.mla.swt.smart.viewer.ui;
+
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.ui.progress.UIJob;
+
+public abstract class MouseClickTimer {
+
+	private Event event = null;
+	private int currentPeriod;
+	private static final int[] DEFAULT_PERIODS = { 400, 100, 50, 20 };
+	private final int[] periods;
+	private UIJob job;
+
+	public MouseClickTimer(int... periodValues) {
+		if (periodValues != null && periodValues.length > 0) {
+			this.periods = periodValues;
+		} else {
+			this.periods = DEFAULT_PERIODS;
+		}
+		job = new UIJob("Mouse Click Timer Job") {
+
+			@Override
+			public IStatus runInUIThread(IProgressMonitor monitor) {
+				if (event != null) {
+					changed(event);
+					if (currentPeriod < periods.length) {
+						currentPeriod++;
+					}
+					job.schedule(periods[currentPeriod]);
+				}
+				return Status.OK_STATUS;
+			}
+		};
+		job.setSystem(true);
+	}
+
+	public void start(Event e) {
+		System.err.println("Started : " + (System.currentTimeMillis()));
+		event = e;
+		currentPeriod = 0;
+		job.schedule(periods[currentPeriod]);
+		started(e);
+	}
+
+	public void mouseUp(Event e) {
+		stop();
+	}
+
+	public void stop() {
+		if (event != null) {
+			new RuntimeException("Stopped : " + (System.currentTimeMillis())).printStackTrace();
+			event = null;
+			currentPeriod = 0;
+			job.cancel();
+			stopped();
+		}
+	}
+
+	protected void stopped() {
+
+	}
+
+	protected void started(Event e) {
+
+	}
+
+	protected abstract void changed(Event event);
+
+}
