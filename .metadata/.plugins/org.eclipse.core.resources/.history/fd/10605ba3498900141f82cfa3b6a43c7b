@@ -1,0 +1,5 @@
+package fr.mla.swt.smart.viewer.renderer;
+
+public class DefaultObjectRenderer extends DefaultRenderer<?> {
+
+}

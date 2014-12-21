@@ -14,14 +14,17 @@ public class Main {
 	public static void main(String[] args) {
 		Display display = new Display();
 		Shell shell = new Shell(display);
-		shell.setLayout(new FillLayout());
+		FillLayout layout = new FillLayout();
+		layout.marginWidth = 0;
+		layout.marginHeight = 0;
+		shell.setLayout(layout);
 		SmartViewerCanvas<File> canvas = new SmartViewerCanvas<>(shell, SWT.DOUBLE_BUFFERED|SWT.NO_BACKGROUND);
 		FileRenderer renderer = new FileRenderer(display);
 		renderer.setBackground(canvas.getBackground());
 		canvas.setRenderer(renderer);
 		canvas.setModel(new FileSystemModel(new File("/Users/mlachgar/Documents")));
 		
-		shell.setSize(1100, 780);
+		shell.setSize(1100, 677);
 		shell.open();
 		while (!shell.isDisposed()) {
 			if (!display.readAndDispatch())

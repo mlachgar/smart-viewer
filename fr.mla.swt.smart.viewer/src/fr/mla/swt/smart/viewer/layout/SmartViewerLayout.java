@@ -21,5 +21,5 @@ public interface SmartViewerLayout<T> {
 
 	public Point getPreferredSize(List<T> items);
 
-	int getMaxItemsCount(int width, int height, List<T> items);
+	int getMaxItemsCount(int width, int height, int startIndex, List<T> items);
 }

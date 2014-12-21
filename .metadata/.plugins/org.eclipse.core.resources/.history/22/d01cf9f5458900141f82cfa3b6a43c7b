@@ -1,0 +1,11 @@
+package fr.mla.swt.smart.viewer.scroll;
+
+import java.util.List;
+
+import fr.mla.swt.smart.viewer.ui.SmartViewerItem;
+
+public interface ScrollManager<T> {
+	
+	public void applyScroll(int hScroll, int vScroll, List<SmartViewerItem<T>> items);
+	
+}

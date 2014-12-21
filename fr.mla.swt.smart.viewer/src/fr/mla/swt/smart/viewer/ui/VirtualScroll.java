@@ -24,7 +24,7 @@ public abstract class VirtualScroll implements Listener {
 	private Rectangle nextArrowBounds = new Rectangle(0, 0, 0, 0);
 	private Rectangle startArrowBounds = new Rectangle(0, 0, 0, 0);
 	private Rectangle endArrowBounds = new Rectangle(0, 0, 0, 0);
-	private final OrientationType type;
+	protected final OrientationType type;
 	private Point clickedPoint;
 	private Image prevImage;
 	private Image nextImage;

@@ -1,0 +1,5 @@
+package fr.mla.swt.smart.viewer.scroll;
+
+public class GridScrollManeger<T> implements ScrollManager<T> {
+
+}

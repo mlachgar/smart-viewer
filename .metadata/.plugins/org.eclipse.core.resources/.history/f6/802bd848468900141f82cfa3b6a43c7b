@@ -1,0 +1,14 @@
+package fr.mla.swt.smart.viewer.scroll;
+
+import java.util.List;
+
+import fr.mla.swt.smart.viewer.layout.SmartViewerLayout;
+import fr.mla.swt.smart.viewer.model.OrientationType;
+import fr.mla.swt.smart.viewer.ui.SmartViewerItem;
+
+public interface ScrollManager<T> {
+
+	public void applyScroll(int hScroll, int vScroll, SmartViewerLayout<T> layout, List<SmartViewerItem<T>> dataList);
+
+	public int next(OrientationType type;, SmartViewerLayout<T> layout, List<SmartViewerItem<T>> dataList);
+}
