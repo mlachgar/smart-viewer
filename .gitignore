@@ -4,3 +4,7 @@
 *.snap
 
 *.xmi
+
+.metadata
+
+bin/

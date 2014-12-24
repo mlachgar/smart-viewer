@@ -3,11 +3,13 @@ package fr.mla.swt.smart.viewer.ui;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 
 public class SmartViewerItem<T> {
 
 	private Rectangle bounds = new Rectangle(0, 0, 0, 0);
+	private Point absoluteLocation = new Point(0, 0);
 	private T data;
 	private int index = 0;
 	private boolean selected;
@@ -15,6 +17,11 @@ public class SmartViewerItem<T> {
 
 	public SmartViewerItem() {
 
+	}
+
+	public SmartViewerItem(T data, int index) {
+		this.data = data;
+		this.index = index;
 	}
 
 	public void setData(T data, int index) {
@@ -27,6 +34,11 @@ public class SmartViewerItem<T> {
 		bounds.y = y;
 		bounds.width = width;
 		bounds.height = height;
+	}
+
+	public void setAbsoluteLocation(int x, int y) {
+		absoluteLocation.x = x;
+		absoluteLocation.y = y;
 	}
 
 	public int getX() {
@@ -43,6 +55,14 @@ public class SmartViewerItem<T> {
 
 	public int getHeight() {
 		return bounds.height;
+	}
+
+	public int getAbsoluteX() {
+		return absoluteLocation.x;
+	}
+
+	public int getAbsoluteY() {
+		return absoluteLocation.y;
 	}
 
 	public void setSize(int width, int height) {
@@ -83,8 +103,43 @@ public class SmartViewerItem<T> {
 		return dataMap.get(key);
 	}
 
-	public Rectangle getBounds() {
-		return bounds;
+	public boolean contains(int x, int y) {
+		return bounds.contains(x, y);
+	}
+
+	public boolean intersects(int x, int y, int width, int height) {
+		return (x < absoluteLocation.x + bounds.width) && (y < absoluteLocation.y + bounds.height)
+				&& (x + width > absoluteLocation.x) && (y + height > absoluteLocation.y);
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((data == null) ? 0 : data.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null) {
+			return false;
+		}
+		if (getClass() != obj.getClass()) {
+			return false;
+		}
+		SmartViewerItem<?> other = (SmartViewerItem<?>) obj;
+		if (data == null) {
+			if (other.data != null) {
+				return false;
+			}
+		} else if (!data.equals(other.data)) {
+			return false;
+		}
+		return true;
 	}
 
 }

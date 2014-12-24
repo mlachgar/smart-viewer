@@ -1,37 +1,48 @@
 package fr.mla.swt.smart.viewer.scroll;
 
+import java.util.Collection;
 import java.util.List;
-
-import org.eclipse.swt.graphics.Rectangle;
 
 import fr.mla.swt.smart.viewer.layout.SmartViewerLayout;
 import fr.mla.swt.smart.viewer.model.OrientationType;
 import fr.mla.swt.smart.viewer.ui.SmartViewerItem;
 
-public class GridScrollManager<T> implements ScrollManager<T> {
+public class GridScrollManager<T> extends AbstractScrollManager<T> {
 
 	@Override
-	public void applyScroll(Rectangle clientArea, int hScroll, int vScroll, SmartViewerLayout<T> layout,
-			List<SmartViewerItem<T>> items, List<T> dataList) {
-		if (dataList.size() > 0) {
-			applyScrollFromIndex(getStartModelIndex(clientArea, hScroll, vScroll, layout, items, dataList), items,
-					dataList);
+	public void applyScroll(ScrollViewport viewport, SmartViewerLayout<T> layout, List<SmartViewerItem<T>> items,
+			Collection<T> selectedData) {
+		if (items.size() > 0) {
+			int dx = 0;
+			int dy = 0;
+			SmartViewerItem<T> firstItem = getFirstItem(viewport, items);
+			if (viewport.hScroll > 0) {
+				int offset = viewport.hScroll - firstItem.getAbsoluteX();
+				if (offset < firstItem.getWidth() / 2) {
+					dx = -offset;
+				} else if (viewport.hScroll < firstItem.getAbsoluteX() + firstItem.getWidth()) {
+					dy = firstItem.getAbsoluteX() + firstItem.getWidth() - viewport.hScroll;
+				}
+			}
+			if (viewport.vScroll > firstItem.getAbsoluteY()) {
+				int offset = viewport.vScroll - firstItem.getAbsoluteY();
+				if (offset < firstItem.getHeight() / 2) {
+					dy = -offset;
+				} else if (viewport.vScroll < firstItem.getAbsoluteY() + firstItem.getHeight()) {
+					dy = firstItem.getAbsoluteY() + firstItem.getHeight() - viewport.vScroll;
+				}
+			}
+			for (SmartViewerItem<T> item : items) {
+				item.setLocation(item.getAbsoluteX() - viewport.hScroll - dx, item.getAbsoluteY() - viewport.vScroll
+						- dy);
+				item.setSelected(selectedData.contains(item.getData()));
+			}
 		}
 	}
 
 	@Override
-	public int getStartModelIndex(Rectangle clientArea, int hScroll, int vScroll, SmartViewerLayout<T> layout,
-			List<SmartViewerItem<T>> items, List<T> dataList) {
-		int index = 0;
-		if (hScroll != 0 || vScroll != 0) {
-			index = layout.itemAt(clientArea, hScroll, vScroll, dataList);
-		}
-		return index;
-	}
-
-	@Override
-	public int next(Rectangle clientArea, OrientationType type, SmartViewerLayout<T> layout,
-			List<SmartViewerItem<T>> items, List<T> dataList) {
+	public int next(ScrollViewport viewport, OrientationType type, SmartViewerLayout<T> layout,
+			List<SmartViewerItem<T>> items) {
 		if (items != null && !items.isEmpty()) {
 			if (type == OrientationType.VERTICAL) {
 				return items.get(0).getHeight() + layout.getSpacing().y;
@@ -43,52 +54,22 @@ public class GridScrollManager<T> implements ScrollManager<T> {
 	}
 
 	@Override
-	public int previous(Rectangle clientArea, OrientationType type, SmartViewerLayout<T> layout,
-			List<SmartViewerItem<T>> items, List<T> dataList) {
-		return -next(clientArea, type, layout, items, dataList);
-	}
-
-	@Override
-	public int nextPage(Rectangle clientArea, OrientationType type, SmartViewerLayout<T> layout,
-			List<SmartViewerItem<T>> items, List<T> dataList) {
+	public int nextPage(ScrollViewport viewport, OrientationType type, SmartViewerLayout<T> layout,
+			List<SmartViewerItem<T>> items) {
 		if (items != null && !items.isEmpty()) {
-			SmartViewerItem<T> firsttItem = items.get(0);
-			SmartViewerItem<T> lastItem = items.get(items.size() - 1);
 			if (type == OrientationType.VERTICAL) {
-				int full = lastItem.getY() + lastItem.getHeight() - firsttItem.getY();
-				if (full > clientArea.height) {
-					return full - lastItem.getHeight();
+				SmartViewerItem<T> bottom = getBottomItem(viewport, items);
+				if (bottom != null) {
+					return bottom.getAbsoluteY() - viewport.vScroll - layout.getSpacing().y;
 				}
-				return full;
 			} else {
-				int full = lastItem.getX() + lastItem.getWidth() - firsttItem.getX();
-				if (full > clientArea.width) {
-					return full - lastItem.getWidth();
+				SmartViewerItem<T> right = getRightItem(viewport, items);
+				if (right != null) {
+					return right.getAbsoluteX() - viewport.hScroll - layout.getSpacing().x;
 				}
-				return full;
 			}
 		}
 		return 0;
-	}
-
-	@Override
-	public int previousPage(Rectangle clientArea, OrientationType type, SmartViewerLayout<T> layout,
-			List<SmartViewerItem<T>> items, List<T> dataList) {
-		return -nextPage(clientArea, type, layout, items, dataList);
-	}
-
-	@Override
-	public void applyScrollFromIndex(int index, List<SmartViewerItem<T>> items, List<T> dataList) {
-		if (index >= 0 && dataList.size() > 0) {
-			for (SmartViewerItem<T> item : items) {
-				if (index < dataList.size()) {
-					item.setData(dataList.get(index), index);
-				} else {
-					item.setData(null, -1);
-				}
-				index++;
-			}
-		}
 	}
 
 }

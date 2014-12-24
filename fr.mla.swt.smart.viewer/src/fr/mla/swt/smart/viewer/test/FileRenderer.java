@@ -42,7 +42,11 @@ public class FileRenderer extends DefaultRenderer<File> {
 				int startX = item.getX() - paintBounds.x;
 				int startY = item.getY() - paintBounds.y;
 				File file = item.getData();
-				gc.drawRectangle(startX, startY, item.getWidth(), item.getHeight());
+				if (item.isSelected()) {
+					gc.setBackground(gc.getDevice().getSystemColor(SWT.COLOR_LIST_SELECTION));
+					gc.fillRoundRectangle(startX, startY, item.getWidth(), item.getHeight(), 10, 10);
+				}
+				gc.drawRoundRectangle(startX, startY, item.getWidth(), item.getHeight(), 10, 10);
 				l.setAlignment(SWT.CENTER);
 				l.setWidth(item.getWidth());
 				l.setText(file.getName());

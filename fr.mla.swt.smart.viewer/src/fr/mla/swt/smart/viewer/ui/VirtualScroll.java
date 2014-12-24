@@ -330,22 +330,28 @@ public abstract class VirtualScroll implements Listener {
 	public void mouseDown(Event e) {
 		if (thumbBounds.contains(e.x, e.y)) {
 			clickedPoint = new Point(e.x, e.y);
+			e.doit = false;
 		}
 		if (prevArrowBounds.contains(e.x, e.y) || nextArrowBounds.contains(e.x, e.y)) {
 			clickTimer.start(e);
+			e.doit = false;
 		}
 	}
 
 	public void mouseUp(Event e) {
 		if (prevArrowBounds.contains(e.x, e.y)) {
 			previous();
+			e.doit = false;
 		} else if (nextArrowBounds.contains(e.x, e.y)) {
 			next();
+			e.doit = false;
 		} else if (startArrowBounds.contains(e.x, e.y)) {
 			resetScroll();
+			e.doit = false;
 		} else if (endArrowBounds.contains(e.x, e.y)) {
 			goToEnd();
-		} else if (clickedPoint == null) {
+			e.doit = false;
+		} else if (clickedPoint == null && bounds.contains(e.x, e.y)) {
 			if (type == OrientationType.HORIZONTAL) {
 				if (e.x < thumbBounds.x) {
 					previousPage();
@@ -360,14 +366,22 @@ public abstract class VirtualScroll implements Listener {
 				}
 			}
 			scrolled();
+			e.doit = false;
 		}
 		if (showHand(e)) {
 			parent.setCursor(parent.getDisplay().getSystemCursor(SWT.CURSOR_HAND));
+			e.doit = false;
 		} else {
 			parent.setCursor(null);
 		}
-		clickedPoint = null;
-		clickTimer.stop();
+		if (clickedPoint != null) {
+			clickedPoint = null;
+			e.doit = false;
+		}
+		if (clickTimer.isStarted()) {
+			clickTimer.stop();
+			e.doit = false;
+		}
 	}
 
 	public void mouseMove(Event e) {
@@ -421,13 +435,15 @@ public abstract class VirtualScroll implements Listener {
 				|| endArrowBounds.contains(e.x, e.y);
 	}
 
-	public void mouseExit(Event e) {
+	public void mouseExit(Event e, boolean reset) {
 		if (parent.isDisposed()) {
 			return;
 		}
 		parent.setCursor(null);
-		clickedPoint = null;
 		clickTimer.stop();
+		if (reset) {
+			clickedPoint = null;
+		}
 	}
 
 	public void resetScroll() {
@@ -457,7 +473,7 @@ public abstract class VirtualScroll implements Listener {
 			mouseEnter(e);
 			break;
 		case SWT.MouseExit:
-			mouseExit(e);
+			mouseExit(e, true);
 			break;
 		case SWT.MouseMove:
 			mouseMove(e);

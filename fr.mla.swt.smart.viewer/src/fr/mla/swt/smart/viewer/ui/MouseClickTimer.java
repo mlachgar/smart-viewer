@@ -12,7 +12,7 @@ public abstract class MouseClickTimer {
 	private Runnable job;
 	private Display display;
 
-	public MouseClickTimer(Display display, int... periodValues) {
+	public MouseClickTimer(final Display display, int... periodValues) {
 		this.display = display;
 		if (periodValues != null && periodValues.length > 0) {
 			this.periods = periodValues;
@@ -53,6 +53,10 @@ public abstract class MouseClickTimer {
 		}
 	}
 
+	public boolean isStarted() {
+		return event != null;
+	}
+	
 	protected void stopped() {
 
 	}

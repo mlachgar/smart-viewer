@@ -5,13 +5,16 @@ import java.io.File;
 import fr.mla.swt.smart.viewer.model.DefaultListModel;
 
 public class FileSystemModel extends DefaultListModel<File> {
-	
+
 	public FileSystemModel(File dir) {
-		for(File f : dir.listFiles()) {
+		for (File f : dir.listFiles()) {
 			addIfNotExists(f);
-			if(f.isDirectory()) {
-				for(File c : f.listFiles()) {
-					addIfNotExists(c);
+			if (f.isDirectory()) {
+				File[] listFiles = f.listFiles();
+				if (listFiles != null) {
+					for (File c : listFiles) {
+						addIfNotExists(c);
+					}
 				}
 			}
 		}

@@ -36,6 +36,7 @@ public class MosaicLayout<T> implements SmartViewerLayout<T> {
 				size.y = y + itemHeight + V_SPACING;
 			}
 			item.setBounds(x, y, itemWidth, itemHeight);
+			item.setAbsoluteLocation(x, y);
 			x += itemWidth + H_SPACING;
 			size.x = Math.max(size.x, x);
 			// }

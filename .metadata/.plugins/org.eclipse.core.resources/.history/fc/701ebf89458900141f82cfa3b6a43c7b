@@ -1,5 +1,0 @@
-package fr.mla.swt.smart.viewer.scroll;
-
-interface class ScrollManager {
-	
-}
