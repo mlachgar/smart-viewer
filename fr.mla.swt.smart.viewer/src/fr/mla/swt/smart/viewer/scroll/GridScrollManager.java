@@ -72,4 +72,24 @@ public class GridScrollManager<T> extends AbstractScrollManager<T> {
 		return 0;
 	}
 
+	public int computeScrollToMakeVisible(ScrollViewport viewport, OrientationType type, SmartViewerLayout<T> layout,
+			SmartViewerItem<T> item) {
+		if (type == OrientationType.HORIZONTAL) {
+			if (viewport.hScroll + viewport.clientArea.width < item.getAbsoluteX() + item.getWidth()) {
+				return (item.getAbsoluteX() + item.getWidth()) - (viewport.hScroll + viewport.clientArea.width)
+						+ item.getWidth();
+			} else if (item.getAbsoluteX() < viewport.hScroll) {
+				return item.getAbsoluteX() - layout.getSpacing().x;
+			}
+		} else {
+			if (viewport.vScroll + viewport.clientArea.height < item.getAbsoluteY() + item.getHeight()) {
+				return (item.getAbsoluteY() + item.getHeight()) - (viewport.vScroll + viewport.clientArea.height)
+						+ item.getHeight();
+			} else if (item.getAbsoluteY() < viewport.vScroll) {
+				return item.getAbsoluteY() - viewport.vScroll - layout.getSpacing().y;
+			}
+		}
+		return 0;
+	}
+
 }

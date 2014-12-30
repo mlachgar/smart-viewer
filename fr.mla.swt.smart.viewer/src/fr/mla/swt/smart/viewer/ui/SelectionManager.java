@@ -7,8 +7,6 @@ public interface SelectionManager<T> {
 
 	public Collection<T> getSelectedData();
 
-	public boolean canSelect(Collection<SmartViewerItem<T>> items);
-
 	public void clearSelection(List<SmartViewerItem<T>> items, SmartViewerItem<T> exceptedItem);
 
 	public boolean selectRange(List<SmartViewerItem<T>> items, int start, int end);
@@ -18,5 +16,7 @@ public interface SelectionManager<T> {
 	public boolean selectOnly(List<SmartViewerItem<T>> items, SmartViewerItem<T> item, boolean forceClear);
 
 	public boolean expandSelectionTo(List<SmartViewerItem<T>> items, SmartViewerItem<T> item);
+
+	boolean selectNext(List<SmartViewerItem<T>> items, int index, int shift, boolean clearSelection);
 
 }

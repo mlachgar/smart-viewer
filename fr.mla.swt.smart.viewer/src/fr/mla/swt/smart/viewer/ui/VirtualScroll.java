@@ -26,6 +26,7 @@ public abstract class VirtualScroll implements Listener {
 	private Rectangle endArrowBounds = new Rectangle(0, 0, 0, 0);
 	protected final OrientationType type;
 	private Point clickedPoint;
+	private int clickedValue;
 	private Image prevImage;
 	private Image nextImage;
 
@@ -105,11 +106,11 @@ public abstract class VirtualScroll implements Listener {
 			drawImage(gc, endImage, endArrowBounds, dx, dy);
 			if (backgroundColor != null) {
 				gc.setBackground(backgroundColor);
-				gc.fillRectangle(bounds.x - dx, bounds.y - dy, bounds.width, bounds.height);
+				gc.fillRoundRectangle(bounds.x - dx, bounds.y - dy, bounds.width, bounds.height, 10, 10);
 			}
 			if (borderColor != null) {
 				gc.setForeground(borderColor);
-				gc.drawRectangle(bounds);
+				gc.drawRoundRectangle(bounds.x - dx, bounds.y - dy, bounds.width - 1, bounds.height - 1, 10, 10);
 			}
 			gc.setBackground(thumbColor);
 			if (type == OrientationType.HORIZONTAL) {
@@ -256,23 +257,27 @@ public abstract class VirtualScroll implements Listener {
 	}
 
 	public void scrollTo(Rectangle bounds, Point spacing) {
+		scrollTo(bounds.x, bounds.y, bounds.width, bounds.height, spacing);
+	}
+
+	public void scrollTo(int x, int y, int width, int height, Point spacing) {
 		if (type == OrientationType.HORIZONTAL) {
-			if (value + bounds.width < bounds.x + bounds.width) {
-				value += (bounds.x + bounds.width) - (value + bounds.width) + spacing.x;
+			if (value + width < x + width) {
+				value += (x + width) - (value + width) + spacing.x;
 				computeThumbLocation();
 				scrolled();
-			} else if (bounds.x < value) {
-				value = bounds.x - spacing.x;
+			} else if (x < value) {
+				value = x - spacing.x;
 				computeThumbLocation();
 				scrolled();
 			}
 		} else {
-			if (value + bounds.height < bounds.y + bounds.height) {
-				value += (bounds.y + bounds.height) - (value + bounds.height) + spacing.y;
+			if (value + bounds.height < y + height) {
+				value += (y + height) - (value + bounds.height) + spacing.y;
 				computeThumbLocation();
 				scrolled();
-			} else if (bounds.y < value) {
-				value = bounds.y - spacing.y;
+			} else if (y < value) {
+				value = y - spacing.y;
 				computeThumbLocation();
 				scrolled();
 			}
@@ -286,9 +291,18 @@ public abstract class VirtualScroll implements Listener {
 
 	public void scrollIn(int shift) {
 		if (shift != 0) {
-			int visibleSize = type == OrientationType.HORIZONTAL ? bounds.width - 2 * bounds.height : bounds.height - 2
+			int visibleSize = type == OrientationType.HORIZONTAL ? bounds.width - 4 * bounds.height : bounds.height - 4
 					* bounds.width;
-			int v = this.value + (shift * visibleSize / thumb);
+			int v = this.value + (shift * max / visibleSize);
+			setValue(v);
+		}
+	}
+
+	public void relativeScrollIn(int originValue, int shift) {
+		if (shift != 0) {
+			int visibleSize = type == OrientationType.HORIZONTAL ? bounds.width - 4 * bounds.height : bounds.height - 4
+					* bounds.width;
+			int v = originValue + (shift * max / visibleSize);
 			setValue(v);
 		}
 	}
@@ -331,6 +345,7 @@ public abstract class VirtualScroll implements Listener {
 		if (thumbBounds.contains(e.x, e.y)) {
 			clickedPoint = new Point(e.x, e.y);
 			e.doit = false;
+			clickedValue = value;
 		}
 		if (prevArrowBounds.contains(e.x, e.y) || nextArrowBounds.contains(e.x, e.y)) {
 			clickTimer.start(e);
@@ -376,6 +391,7 @@ public abstract class VirtualScroll implements Listener {
 		}
 		if (clickedPoint != null) {
 			clickedPoint = null;
+			clickedValue = -1;
 			e.doit = false;
 		}
 		if (clickTimer.isStarted()) {
@@ -395,12 +411,10 @@ public abstract class VirtualScroll implements Listener {
 			int d = 0;
 			if (type == OrientationType.HORIZONTAL) {
 				d = e.x - clickedPoint.x;
-				clickedPoint.x = e.x;
 			} else {
 				d = e.y - clickedPoint.y;
-				clickedPoint.y = e.y;
 			}
-			scrollIn(d);
+			relativeScrollIn(clickedValue, d);
 			scrolled();
 		}
 		if (showHand(e)) {

@@ -5,6 +5,11 @@
 
 *.xmi
 
-.metadata
+.metadata/*
+
+.metadata/.plugins/*
 
 bin/
+*.log
+*.index
+*.snap

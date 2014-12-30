@@ -13,7 +13,7 @@ public class SmartViewerItem<T> {
 	private T data;
 	private int index = 0;
 	private boolean selected;
-	private final Map<String, Object> dataMap = new HashMap<>();
+	private final Map<Object, Object> dataMap = new HashMap<>();
 
 	public SmartViewerItem() {
 
@@ -95,11 +95,11 @@ public class SmartViewerItem<T> {
 		return data;
 	}
 
-	public void putExtraData(String key, Object data) {
+	public void putExtraData(Object key, Object data) {
 		dataMap.put(key, data);
 	}
 
-	public Object getExtraData(String key) {
+	public Object getExtraData(Object key) {
 		return dataMap.get(key);
 	}
 

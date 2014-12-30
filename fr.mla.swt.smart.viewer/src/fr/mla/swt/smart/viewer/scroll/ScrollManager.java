@@ -24,4 +24,7 @@ public interface ScrollManager<T> {
 	public int previousPage(ScrollViewport viewport, OrientationType type, SmartViewerLayout<T> layout,
 			List<SmartViewerItem<T>> items);
 
+	public int computeScrollToMakeVisible(ScrollViewport viewport, OrientationType type, SmartViewerLayout<T> layout,
+			SmartViewerItem<T> item);
+
 }

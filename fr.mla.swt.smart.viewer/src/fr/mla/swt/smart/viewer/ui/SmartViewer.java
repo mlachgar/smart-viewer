@@ -19,8 +19,9 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 
-import fr.mla.swt.smart.viewer.layout.MosaicLayout;
+import fr.mla.swt.smart.viewer.layout.SmartGridLayout;
 import fr.mla.swt.smart.viewer.layout.SmartViewerLayout;
+import fr.mla.swt.smart.viewer.model.DirectionType;
 import fr.mla.swt.smart.viewer.model.ListModel;
 import fr.mla.swt.smart.viewer.model.OrientationType;
 import fr.mla.swt.smart.viewer.model.SmartModelListener;
@@ -37,11 +38,11 @@ public class SmartViewer<T> extends Canvas {
 	private ListModel<T> model;
 	private final List<T> dataList = new ArrayList<>();
 	private SmartModelListener<T> modelListener;
-
+	private SmartViewerItemsFactory<T> itemsFactory = new DefaultViewerItemsFactory<>();
 	private InternalScroll hScroll;
 	private InternalScroll vScroll;
 	private SmartViewerRenderer<T> renderer = new DefaultObjectRenderer<T>();
-	private SmartViewerLayout<T> layout = new MosaicLayout<>();
+	private SmartViewerLayout<T> layout = new SmartGridLayout<>(-1, 2);
 	private ScrollManager<T> scrollManager = new DefaultScrollManager<T>();
 	private SelectionManager<T> selectionManager = new DefaultSelectionManager<>();
 	private final List<SmartViewerSelectionListener<T>> selectionListeners = new ArrayList<>();
@@ -58,6 +59,7 @@ public class SmartViewer<T> extends Canvas {
 		setUpPaintListener();
 		setUpControlListener(parent);
 		setUpMouseListener();
+		setUpKeyListener();
 	}
 
 	private void setUpPaintListener() {
@@ -169,6 +171,95 @@ public class SmartViewer<T> extends Canvas {
 		addListener(SWT.MouseWheel, listener);
 	}
 
+	private void setUpKeyListener() {
+		Listener listener = new Listener() {
+
+			@Override
+			public void handleEvent(Event e) {
+				if (e.doit) {
+					if (e.type == SWT.KeyDown) {
+						handleKeyPressed(e);
+					} else if (e.type == SWT.KeyUp) {
+						handleKeyReleased(e);
+					}
+				}
+			}
+		};
+
+		addListener(SWT.KeyUp, listener);
+		addListener(SWT.KeyDown, listener);
+	}
+
+	protected void handleKeyReleased(final Event e) {
+
+	}
+
+	protected void handleKeyPressed(final Event e) {
+		if (!e.doit) {
+			return;
+		}
+		int index = getLastSelectedIndex();
+		if (index == -1) {
+			if (items.isEmpty()) {
+				return;
+			} else {
+				index = 0;
+			}
+		}
+		final boolean shiftMask = (e.stateMask & SWT.SHIFT) != 0;
+		int nextIndex = -1;
+		switch (e.keyCode) {
+		case SWT.ARROW_LEFT:
+			if (layout.isNavigable(OrientationType.HORIZONTAL)) {
+				nextIndex = layout.getNeighborItem(index, DirectionType.LEFT, items);
+			}
+			break;
+		case SWT.ARROW_RIGHT:
+			if (layout.isNavigable(OrientationType.HORIZONTAL)) {
+				nextIndex = layout.getNeighborItem(index, DirectionType.RIGHT, items);
+			}
+			break;
+		case SWT.ARROW_UP:
+			if (layout.isNavigable(OrientationType.VERTICAL)) {
+				nextIndex = layout.getNeighborItem(index, DirectionType.UP, items);
+			}
+			break;
+		case SWT.ARROW_DOWN:
+			if (layout.isNavigable(OrientationType.VERTICAL)) {
+				nextIndex = layout.getNeighborItem(index, DirectionType.DOWN, items);
+			}
+			break;
+		case SWT.PAGE_DOWN:
+			if (hScroll.isVisible()) {
+				hScroll.nextPage();
+			} else if (vScroll.isVisible()) {
+				vScroll.nextPage();
+			}
+			break;
+		case SWT.PAGE_UP:
+			if (hScroll.isVisible()) {
+				hScroll.previousPage();
+			} else if (vScroll.isVisible()) {
+				vScroll.previousPage();
+			}
+			break;
+		}
+		if (nextIndex >= 0 && nextIndex < items.size()) {
+			SmartViewerItem<T> nextItem = items.get(nextIndex);
+			if (shiftMask) {
+				if (selectionManager.appendToSelection(nextItem, true)) {
+					showControl(nextItem);
+					fireSelectionChanged();
+				}
+			} else {
+				if (selectionManager.selectOnly(items, nextItem, true)) {
+					showControl(nextItem);
+					fireSelectionChanged();
+				}
+			}
+		}
+	}
+
 	private void handleMouseDown(Event e) {
 		final SmartViewerItem<T> item = getItemAt(e.x, e.y);
 		final boolean dragDetect = dragDetect(e);
@@ -238,7 +329,7 @@ public class SmartViewer<T> extends Canvas {
 		if (layout != null) {
 			this.layout = layout;
 		} else {
-			layout = new MosaicLayout<>();
+			layout = new SmartGridLayout<>();
 		}
 	}
 
@@ -258,10 +349,16 @@ public class SmartViewer<T> extends Canvas {
 		}
 	}
 
+	public void setItemsFactory(SmartViewerItemsFactory<T> itemsFactory) {
+		if (itemsFactory != null) {
+			this.itemsFactory = itemsFactory;
+		}
+	}
+
 	public void updateScrolls() {
 		Rectangle area = super.getClientArea();
 		if (!dataList.isEmpty()) {
-			Point neededSize = layout.getNeededSize(area.width, area.height, dataList);
+			Point neededSize = layout.getNeededSize(area.width, area.height, items);
 			if (neededSize.x > area.width) {
 				hScroll.setSize(area.width, BAR_SIZE);
 				hScroll.setMax(neededSize.x);
@@ -284,14 +381,17 @@ public class SmartViewer<T> extends Canvas {
 
 	@Override
 	public Rectangle getClientArea() {
-		Rectangle area = super.getClientArea();
-		if (vScroll.isVisible()) {
-			area.width -= vScroll.getWidth();
+		Rectangle clientArea = super.getClientArea();
+		if (clientArea.width > 0 && clientArea.height > 0) {
+			Point neededSize = layout.getNeededSize(clientArea.width, clientArea.height, items);
+			if (neededSize.x > clientArea.width) {
+				clientArea.height -= BAR_SIZE;
+			}
+			if (neededSize.y > clientArea.height) {
+				clientArea.width -= BAR_SIZE;
+			}
 		}
-		if (hScroll.isVisible()) {
-			area.height -= hScroll.getHeight();
-		}
-		return area;
+		return clientArea;
 	}
 
 	public ScrollViewport getViewport() {
@@ -301,9 +401,19 @@ public class SmartViewer<T> extends Canvas {
 
 	@Override
 	public Point computeSize(int wHint, int hHint, boolean changed) {
-		final Point p = layout.getPreferredSize(dataList);
-		final int hBar = hScroll.isVisible() ? BAR_SIZE : 1;
-		final int vBar = vScroll.isVisible() ? BAR_SIZE : 1;
+		Point size = super.computeSize(wHint, hHint, changed);
+		Point neededSize = layout.getNeededSize(size.x, size.y, items);
+		int hBar = 0;
+		int vBar = 0;
+		if (neededSize.x > size.x) {
+			size.y -= BAR_SIZE;
+			vBar = BAR_SIZE;
+		}
+		if (neededSize.y > size.y) {
+			size.x -= BAR_SIZE;
+			hBar = BAR_SIZE;
+		}
+		final Point p = layout.getPreferredSize(size.x, size.y, items);
 		if (p.x != SWT.DEFAULT) {
 			p.x += vBar;
 		}
@@ -317,10 +427,10 @@ public class SmartViewer<T> extends Canvas {
 		int modelSize = dataList.size();
 		updateScrolls();
 		if (modelSize > 0) {
-			ScrollViewport viewport = getViewport();
+			Rectangle clientArea = getClientArea();
 			allocateItems();
-			layout.layoutItems(viewport.clientArea.width, viewport.clientArea.height, items);
-			scrollManager.applyScroll(viewport, layout, items, selectionManager.getSelectedData());
+			layout.layoutItems(clientArea.width, clientArea.height, items);
+			scrollManager.applyScroll(getViewport(), layout, items, selectionManager.getSelectedData());
 		}
 		redrawCanvas();
 	}
@@ -341,7 +451,9 @@ public class SmartViewer<T> extends Canvas {
 	public boolean isVisibleListFilled() {
 		boolean filled = false;
 		if (!isDisposed()) {
-			filled = layout.isBoundsFilled(getBounds(), dataList);
+			Rectangle bounds = getBounds();
+			Point neededSize = layout.getNeededSize(bounds.width, bounds.height, items);
+			return neededSize.x > bounds.width || neededSize.y > bounds.height;
 		}
 		return filled;
 	}
@@ -383,7 +495,7 @@ public class SmartViewer<T> extends Canvas {
 		}
 		if (modelSize > items.size()) {
 			for (int i = items.size(); i < modelSize; i++) {
-				items.add(new SmartViewerItem<T>(dataList.get(i), i));
+				items.add(itemsFactory.createItem(dataList.get(i), i));
 			}
 		} else {
 			Iterator<SmartViewerItem<T>> it = items.iterator();
@@ -393,6 +505,18 @@ public class SmartViewer<T> extends Canvas {
 		}
 		for (int i = 0; i < items.size(); i++) {
 			items.get(i).setData(dataList.get(i), i);
+		}
+	}
+
+	protected void showControl(SmartViewerItem<T> item) {
+		if (hScroll.isVisible()) {
+			hScroll.fastScroll(scrollManager.computeScrollToMakeVisible(getViewport(), OrientationType.HORIZONTAL,
+					layout, item));
+			hScroll.scrolled();
+		} else if (vScroll.isVisible()) {
+			vScroll.fastScroll(scrollManager.computeScrollToMakeVisible(getViewport(), OrientationType.VERTICAL,
+					layout, item));
+			hScroll.scrolled();
 		}
 	}
 

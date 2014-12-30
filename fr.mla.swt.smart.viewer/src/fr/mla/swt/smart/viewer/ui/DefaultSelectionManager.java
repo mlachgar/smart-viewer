@@ -18,13 +18,8 @@ public class DefaultSelectionManager<T> implements SelectionManager<T> {
 		return unmodifiableSelectedData;
 	}
 
-	@Override
-	public boolean canSelect(Collection<SmartViewerItem<T>> items) {
-		return true;
-	}
-
 	protected boolean canSelect(final SmartViewerItem<T> item) {
-		return canSelect(Collections.singletonList(item));
+		return true;
 	}
 
 	@Override
@@ -46,15 +41,19 @@ public class DefaultSelectionManager<T> implements SelectionManager<T> {
 		if (start < end) {
 			for (int i = start; i <= end; i++) {
 				final SmartViewerItem<T> item = items.get(i);
-				toSelect.add(item);
+				if (canSelect(item)) {
+					toSelect.add(item);
+				}
 			}
 		} else {
 			for (int i = start; i >= end; i--) {
 				final SmartViewerItem<T> item = items.get(i);
-				toSelect.add(item);
+				if (canSelect(item)) {
+					toSelect.add(item);
+				}
 			}
 		}
-		if (canSelect(toSelect)) {
+		if (!toSelect.isEmpty()) {
 			clearSelection(items, null);
 			for (final SmartViewerItem<T> item : toSelect) {
 				item.setSelected(true);
@@ -81,27 +80,27 @@ public class DefaultSelectionManager<T> implements SelectionManager<T> {
 		return false;
 	}
 
-	private boolean selectNext(List<SmartViewerItem<T>> items, int index, int shift, boolean clearSelection) {
-		final SmartViewerItem<T> item = items.get(index);
+	@Override
+	public boolean selectNext(List<SmartViewerItem<T>> items, int index, int shift, boolean clearSelection) {
 		SmartViewerItem<T> nextItem = null;
-		index++;
+		index += shift;
 		while (index >= 0 && index < items.size()) {
 			nextItem = items.get(index);
 			if (canSelect(nextItem)) {
 				break;
 			}
-			index++;
+			index += shift;
 		}
 		if (nextItem != null) {
 			if (clearSelection) {
-				clearSelection(items, item);
-				item.setSelected(true);
-				selectedData.add(item.getData());
+				clearSelection(items, nextItem);
+				nextItem.setSelected(true);
+				selectedData.add(nextItem.getData());
 				return true;
 			} else {
 				if (nextItem.isSelected()) {
-					item.setSelected(false);
-					selectedData.remove(item.getData());
+					nextItem.setSelected(false);
+					selectedData.remove(nextItem.getData());
 					return true;
 				} else {
 					if (canSelect(nextItem)) {
@@ -127,8 +126,8 @@ public class DefaultSelectionManager<T> implements SelectionManager<T> {
 				clearSelection(items, item);
 			}
 			item.setSelected(true);
+			return forceClear;
 		}
-		return false;
 	}
 
 	@Override
