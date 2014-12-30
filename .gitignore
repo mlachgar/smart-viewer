@@ -5,9 +5,7 @@
 
 *.xmi
 
-.metadata/*
-
-.metadata/.plugins/*
+.metadata/
 
 bin/
 *.log
