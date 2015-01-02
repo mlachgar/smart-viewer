@@ -1,7 +1,7 @@
 package fr.mla.swt.smart.viewer.ui;
 
-public interface SmartViewerItemsFactory<T> {
+public interface SmartViewerItemsFactory {
 
-	public SmartViewerItem<T> createItem(T data, int index);
+	public SmartViewerItem createItem(Object data, int index, int depth);
 
 }

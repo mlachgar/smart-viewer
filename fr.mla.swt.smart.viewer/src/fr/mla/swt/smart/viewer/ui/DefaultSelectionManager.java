@@ -3,61 +3,152 @@ package fr.mla.swt.smart.viewer.ui;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Set;
 
-public class DefaultSelectionManager<T> implements SelectionManager<T> {
+public class DefaultSelectionManager implements SelectionManager {
 
-	protected final LinkedHashSet<T> selectedData = new LinkedHashSet<>();
-	protected final Set<T> unmodifiableSelectedData = Collections.unmodifiableSet(selectedData);
+	protected final LinkedHashSet<Object> selectedData = new LinkedHashSet<>();
+	protected final LinkedHashSet<SmartViewerItem> selectedItems = new LinkedHashSet<>();
+
+	private List<SmartViewerItem> items = new ArrayList<>();
+	private final List<List<SmartViewerItem>> depthItems = new ArrayList<>();
 
 	@Override
-	public Collection<T> getSelectedData() {
-		return unmodifiableSelectedData;
+	public void setItems(List<SmartViewerItem> items) {
+		HashSet<?> previousSelection = new HashSet<>(selectedData);
+		this.items.clear();
+		this.selectedItems.clear();
+		this.selectedData.clear();
+		this.depthItems.clear();
+		this.items.addAll(items);
+		initDepthItems(0, items, previousSelection);
+
 	}
 
-	protected boolean canSelect(final SmartViewerItem<T> item) {
+	private void initDepthItems(int depth, List<SmartViewerItem> items, Collection<?> selectedData) {
+		if (!items.isEmpty()) {
+			if (depth >= depthItems.size()) {
+				for (int i = depthItems.size(); i <= depth; i++) {
+					depthItems.add(new ArrayList<SmartViewerItem>());
+				}
+			}
+			List<SmartViewerItem> list = depthItems.get(depth);
+			for (SmartViewerItem item : items) {
+				list.add(item);
+				if (selectedData.contains(item.getData())) {
+					select(item);
+				}
+				initDepthItems(depth + 1, item.getChildren(), selectedData);
+			}
+		}
+	}
+
+	@Override
+	public List<SmartViewerItem> getDepthItems(int depth) {
+		if (depth >= 0 && depth < depthItems.size()) {
+			return depthItems.get(depth);
+		}
+		return Collections.emptyList();
+	}
+
+	@Override
+	public Collection<?> getSelectedData() {
+		return selectedData;
+	}
+
+	@Override
+	public Collection<SmartViewerItem> getSelectedItems() {
+		return selectedItems;
+	}
+
+	protected boolean canSelect(final SmartViewerItem item) {
+		if (!selectedItems.isEmpty()) {
+			SmartViewerItem firstItem = selectedItems.iterator().next();
+			return firstItem.getDepth() == item.getDepth();
+		}
 		return true;
 	}
 
 	@Override
-	public void clearSelection(List<SmartViewerItem<T>> items, SmartViewerItem<T> exceptedItem) {
-		for (final SmartViewerItem<T> item : items) {
-			if (exceptedItem == null || !item.getData().equals(exceptedItem.getData())) {
-				item.setSelected(false);
-			}
+	public boolean selectAll() {
+		if (!selectedItems.isEmpty()) {
+			SmartViewerItem firstItem = selectedItems.iterator().next();
+			selectAll(depthItems.get(firstItem.getDepth()));
+		} else {
+			selectAll(depthItems.get(depthItems.size() - 1));
 		}
-		selectedData.clear();
-		if (exceptedItem != null) {
-			selectedData.add(exceptedItem.getData());
+		return true;
+	}
+
+	private void selectAll(List<SmartViewerItem> items) {
+		clearSelection(null);
+		for (SmartViewerItem item : items) {
+			select(item);
 		}
 	}
 
 	@Override
-	public boolean selectRange(List<SmartViewerItem<T>> items, int start, int end) {
-		final List<SmartViewerItem<T>> toSelect = new ArrayList<>();
+	public void clearSelection(SmartViewerItem exceptedItem) {
+		for (final SmartViewerItem item : items) {
+			if (exceptedItem == null || !item.getData().equals(exceptedItem.getData())) {
+				item.setSelected(false);
+			}
+			unselectChildren(item, exceptedItem);
+		}
+		selectedItems.clear();
+		selectedData.clear();
+		select(exceptedItem);
+	}
+
+	private void unselectChildren(SmartViewerItem item, SmartViewerItem exceptedItem) {
+		for (final SmartViewerItem child : item.getChildren()) {
+			if (exceptedItem == null || !child.getData().equals(exceptedItem.getData())) {
+				child.setSelected(false);
+			}
+			unselectChildren(child, exceptedItem);
+		}
+	}
+
+	private void select(SmartViewerItem item) {
+		if (item != null) {
+			item.setSelected(true);
+			selectedItems.add(item);
+			selectedData.add(item.getData());
+		}
+	}
+
+	private void unselect(SmartViewerItem item) {
+		if (item != null) {
+			item.setSelected(false);
+			selectedItems.remove(item);
+			selectedData.remove(item.getData());
+		}
+	}
+
+	protected boolean selectRange(List<SmartViewerItem> items, int start, int end) {
+		final List<SmartViewerItem> toSelect = new ArrayList<>();
 		if (start < end) {
 			for (int i = start; i <= end; i++) {
-				final SmartViewerItem<T> item = items.get(i);
+				final SmartViewerItem item = items.get(i);
 				if (canSelect(item)) {
 					toSelect.add(item);
 				}
 			}
 		} else {
 			for (int i = start; i >= end; i--) {
-				final SmartViewerItem<T> item = items.get(i);
+				final SmartViewerItem item = items.get(i);
 				if (canSelect(item)) {
 					toSelect.add(item);
 				}
 			}
 		}
 		if (!toSelect.isEmpty()) {
-			clearSelection(items, null);
-			for (final SmartViewerItem<T> item : toSelect) {
-				item.setSelected(true);
-				selectedData.add(item.getData());
+			clearSelection(null);
+			for (final SmartViewerItem item : toSelect) {
+				select(item);
 			}
 			return true;
 		}
@@ -65,85 +156,89 @@ public class DefaultSelectionManager<T> implements SelectionManager<T> {
 	}
 
 	@Override
-	public boolean appendToSelection(SmartViewerItem<T> item, boolean unselectIfSelected) {
-		if (!item.isSelected()) {
-			if (canSelect(item)) {
-				selectedData.add(item.getData());
-				item.setSelected(true);
+	public boolean appendToSelection(SmartViewerItem item, boolean unselectIfSelected) {
+		if (item != null) {
+			if (!item.isSelected()) {
+				if (canSelect(item)) {
+					select(item);
+					return true;
+				}
+			} else if (unselectIfSelected) {
+				unselect(item);
 				return true;
 			}
-		} else if (unselectIfSelected) {
-			selectedData.remove(item.getData());
-			item.setSelected(false);
-			return true;
 		}
 		return false;
 	}
 
+	// @Override
+	// public boolean selectNext(List<SmartViewerItem> items, int index, int
+	// shift, boolean clearSelection) {
+	// SmartViewerItem nextItem = null;
+	// index += shift;
+	// while (index >= 0 && index < items.size()) {
+	// nextItem = items.get(index);
+	// if (canSelect(nextItem)) {
+	// break;
+	// }
+	// index += shift;
+	// }
+	// if (nextItem != null) {
+	// if (clearSelection) {
+	// clearSelection(items, nextItem);
+	// nextItem.setSelected(true);
+	// selectedData.add(nextItem.getData());
+	// return true;
+	// } else {
+	// if (nextItem.isSelected()) {
+	// nextItem.setSelected(false);
+	// selectedData.remove(nextItem.getData());
+	// return true;
+	// } else {
+	// if (canSelect(nextItem)) {
+	// nextItem.setSelected(true);
+	// selectedData.add(nextItem.getData());
+	// return true;
+	// }
+	// }
+	// }
+	// }
+	// return false;
+	// }
+
 	@Override
-	public boolean selectNext(List<SmartViewerItem<T>> items, int index, int shift, boolean clearSelection) {
-		SmartViewerItem<T> nextItem = null;
-		index += shift;
-		while (index >= 0 && index < items.size()) {
-			nextItem = items.get(index);
-			if (canSelect(nextItem)) {
-				break;
-			}
-			index += shift;
-		}
-		if (nextItem != null) {
-			if (clearSelection) {
-				clearSelection(items, nextItem);
-				nextItem.setSelected(true);
-				selectedData.add(nextItem.getData());
+	public boolean selectOnly(SmartViewerItem item, boolean forceClear) {
+		if (item != null) {
+			if (!item.isSelected()) {
+				clearSelection(item);
+				select(item);
 				return true;
 			} else {
-				if (nextItem.isSelected()) {
-					nextItem.setSelected(false);
-					selectedData.remove(nextItem.getData());
-					return true;
-				} else {
-					if (canSelect(nextItem)) {
-						nextItem.setSelected(true);
-						selectedData.add(nextItem.getData());
-						return true;
-					}
+				if (forceClear) {
+					clearSelection(item);
 				}
+				item.setSelected(true);
+				return forceClear;
 			}
 		}
 		return false;
 	}
 
 	@Override
-	public boolean selectOnly(List<SmartViewerItem<T>> items, SmartViewerItem<T> item, boolean forceClear) {
-		if (!item.isSelected()) {
-			clearSelection(items, item);
-			item.setSelected(true);
-			selectedData.add(item.getData());
-			return true;
-		} else {
-			if (forceClear) {
-				clearSelection(items, item);
-			}
-			item.setSelected(true);
-			return forceClear;
-		}
-	}
-
-	@Override
-	public boolean expandSelectionTo(List<SmartViewerItem<T>> items, SmartViewerItem<T> item) {
+	public boolean expandSelectionTo(SmartViewerItem item) {
+		List<SmartViewerItem> items = depthItems.get(item.getDepth());
 		final int index = items.indexOf(item);
 		if (index < 0) {
 			return false;
 		}
 
 		// get the selection bounds
-		final ListIterator<SmartViewerItem<T>> it = items.listIterator();
+		final ListIterator<SmartViewerItem> it = items.listIterator();
 		int minSelect = -1;
 		int maxSelect = -1;
 		while (it.hasNext()) {
 			final int i = it.nextIndex();
-			final SmartViewerItem<T> e = it.next();
+			final SmartViewerItem e = it.next();
 			if (!e.isSelected()) {
 				continue;
 			}

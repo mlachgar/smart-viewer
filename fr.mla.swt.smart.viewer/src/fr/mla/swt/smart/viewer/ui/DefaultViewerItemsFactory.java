@@ -1,10 +1,10 @@
 package fr.mla.swt.smart.viewer.ui;
 
-public class DefaultViewerItemsFactory<T> implements SmartViewerItemsFactory<T> {
+public class DefaultViewerItemsFactory implements SmartViewerItemsFactory {
 
 	@Override
-	public SmartViewerItem<T> createItem(T data, int index) {
-		return new SmartViewerItem<T>(data, index);
+	public SmartViewerItem createItem(Object data, int index, int depth) {
+		return new SmartViewerItem(data, index, depth);
 	}
-	
+
 }

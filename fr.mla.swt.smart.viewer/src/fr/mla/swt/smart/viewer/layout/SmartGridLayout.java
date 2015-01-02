@@ -2,6 +2,7 @@ package fr.mla.swt.smart.viewer.layout;
 
 import java.util.List;
 
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 
@@ -9,14 +10,14 @@ import fr.mla.swt.smart.viewer.model.DirectionType;
 import fr.mla.swt.smart.viewer.model.OrientationType;
 import fr.mla.swt.smart.viewer.ui.SmartViewerItem;
 
-public class SmartGridLayout<T> implements SmartViewerLayout<T> {
+public class SmartGridLayout implements SmartViewerLayout {
 
 	private static final String COL_DATA_KEY = "layout.grid.col";
 	private static final String ROW_DATA_KEY = "layout.grid.row";
 	private static final int DEFAULT_WIDTH = 160;
 	private static final int DEFAULT_HEIGHT = 160;
-	private int V_SPACING = 3;
-	private int H_SPACING = 3;
+	private int V_SPACING = 5;
+	private int H_SPACING = 5;
 	private int itemWidth = DEFAULT_WIDTH;
 	private int itemHeight = DEFAULT_HEIGHT;
 	private int columnsCount = -1;
@@ -33,14 +34,14 @@ public class SmartGridLayout<T> implements SmartViewerLayout<T> {
 	}
 
 	@Override
-	public void layoutItems(int width, int height, List<SmartViewerItem<T>> items) {
+	public void layoutItems(int width, int height, List<SmartViewerItem> items) {
 		int x = H_SPACING;
 		int y = V_SPACING;
 		int col = 1;
 		int row = 1;
 		Point gridSize = getGridSize(width, height, items);
 		for (int i = 0; i < items.size(); i++) {
-			SmartViewerItem<T> item = items.get(i);
+			SmartViewerItem item = items.get(i);
 			item.setBounds(x, y, itemWidth, itemHeight);
 			item.setAbsoluteLocation(x, y);
 			item.putExtraData(COL_DATA_KEY, col);
@@ -70,7 +71,7 @@ public class SmartGridLayout<T> implements SmartViewerLayout<T> {
 		}
 	}
 
-	private Point getGridSize(int width, int height, List<SmartViewerItem<T>> items) {
+	private Point getGridSize(int width, int height, List<SmartViewerItem> items) {
 		int columns = columnsCount;
 		int rows = rowsCount;
 		if (columns > 0) {
@@ -91,14 +92,13 @@ public class SmartGridLayout<T> implements SmartViewerLayout<T> {
 				if (items.size() % columns != 0) {
 					rows++;
 				}
-				rows++;
 			}
 		}
 		return new Point(columns, rows);
 	}
 
 	@Override
-	public Point getNeededSize(int width, int height, List<SmartViewerItem<T>> items) {
+	public Point getNeededSize(int width, int height, List<SmartViewerItem> items) {
 		Point gridSize = getGridSize(width, height, items);
 		if (gridSize.x > 0 && gridSize.y > 0) {
 			return new Point(H_SPACING + gridSize.x * (itemWidth + H_SPACING), V_SPACING + gridSize.y
@@ -109,9 +109,9 @@ public class SmartGridLayout<T> implements SmartViewerLayout<T> {
 	}
 
 	@Override
-	public Point getPreferredSize(int width, int height, List<SmartViewerItem<T>> items) {
-		int w = width;
-		int h = height;
+	public Point getPreferredSize(int width, int height, List<SmartViewerItem> items) {
+		int w = SWT.DEFAULT;
+		int h = SWT.DEFAULT;
 		if (columnsCount > 0) {
 			w = H_SPACING + columnsCount * (itemWidth + H_SPACING);
 		} else if (rowsCount > 0) {
@@ -131,7 +131,7 @@ public class SmartGridLayout<T> implements SmartViewerLayout<T> {
 	}
 
 	@Override
-	public int itemAt(Rectangle bounds, int x, int y, List<SmartViewerItem<T>> items) {
+	public int itemAt(Rectangle bounds, int x, int y, List<SmartViewerItem> items) {
 		Point gridSize = getGridSize(bounds.width, bounds.height, items);
 		int col = (x) / (itemWidth + H_SPACING);
 		int row = (y) / (itemHeight + V_SPACING);
@@ -148,10 +148,10 @@ public class SmartGridLayout<T> implements SmartViewerLayout<T> {
 		return true;
 	}
 
-	private int findCell(int col, int row, List<SmartViewerItem<T>> items) {
+	private int findCell(int col, int row, List<SmartViewerItem> items) {
 		if (col > 0 && row > 0) {
 			for (int i = 0; i < items.size(); i++) {
-				SmartViewerItem<T> item = items.get(i);
+				SmartViewerItem item = items.get(i);
 				Integer c = (Integer) item.getExtraData(COL_DATA_KEY);
 				Integer r = (Integer) item.getExtraData(ROW_DATA_KEY);
 				if (c != null && r != null && c.intValue() == col && r.intValue() == row) {
@@ -162,7 +162,7 @@ public class SmartGridLayout<T> implements SmartViewerLayout<T> {
 		return -1;
 	}
 
-	private int nextColumn(int index, int col, int row, int offset, List<SmartViewerItem<T>> items) {
+	private int nextColumn(int index, int col, int row, int offset, List<SmartViewerItem> items) {
 		if (columnsCount <= 0 && rowsCount <= 0) {
 			return index + offset;
 		}
@@ -178,7 +178,7 @@ public class SmartGridLayout<T> implements SmartViewerLayout<T> {
 		return findCell(col, row, items);
 	}
 
-	private int nextRow(int col, int row, int offset, List<SmartViewerItem<T>> items) {
+	private int nextRow(int col, int row, int offset, List<SmartViewerItem> items) {
 		row += offset;
 		if (row < 1 || (rowsCount > 0 && row > rowsCount)) {
 			return -1;
@@ -194,9 +194,8 @@ public class SmartGridLayout<T> implements SmartViewerLayout<T> {
 		return findCell(col, row, items);
 	}
 
-	@Override
-	public int getNeighborItem(int index, DirectionType type, List<SmartViewerItem<T>> items) {
-		SmartViewerItem<T> item = items.get(index);
+	public int getNeighborItemIndex(int index, DirectionType type, List<SmartViewerItem> items) {
+		SmartViewerItem item = items.get(index);
 		Integer col = (Integer) item.getExtraData(COL_DATA_KEY);
 		Integer row = (Integer) item.getExtraData(ROW_DATA_KEY);
 		if (col != null && row != null) {
@@ -212,5 +211,17 @@ public class SmartGridLayout<T> implements SmartViewerLayout<T> {
 			}
 		}
 		return -1;
+	}
+
+	@Override
+	public SmartViewerItem getNeighborItem(SmartViewerItem item, DirectionType type, List<SmartViewerItem> items) {
+		int index = items.indexOf(item);
+		if (index != -1) {
+			int neighborIndex = getNeighborItemIndex(index, type, items);
+			if (neighborIndex >= 0 && neighborIndex < items.size()) {
+				return items.get(neighborIndex);
+			}
+		}
+		return null;
 	}
 }

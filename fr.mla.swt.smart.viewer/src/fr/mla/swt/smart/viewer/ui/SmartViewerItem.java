@@ -1,30 +1,36 @@
 package fr.mla.swt.smart.viewer.ui;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 
-public class SmartViewerItem<T> {
+public class SmartViewerItem {
 
 	private Rectangle bounds = new Rectangle(0, 0, 0, 0);
 	private Point absoluteLocation = new Point(0, 0);
-	private T data;
+	private Object data;
 	private int index = 0;
+	private int depth = 0;
 	private boolean selected;
 	private final Map<Object, Object> dataMap = new HashMap<>();
+	private final List<SmartViewerItem> children = new ArrayList<SmartViewerItem>();
 
 	public SmartViewerItem() {
 
 	}
 
-	public SmartViewerItem(T data, int index) {
+	public SmartViewerItem(Object data, int index, int depth) {
 		this.data = data;
 		this.index = index;
+		this.depth = depth;
 	}
 
-	public void setData(T data, int index) {
+	public void setData(Object data, int index) {
 		this.data = data;
 		this.index = index;
 	}
@@ -91,7 +97,7 @@ public class SmartViewerItem<T> {
 		this.index = index;
 	}
 
-	public T getData() {
+	public Object getData() {
 		return data;
 	}
 
@@ -103,6 +109,14 @@ public class SmartViewerItem<T> {
 		return dataMap.get(key);
 	}
 
+	public int getDepth() {
+		return depth;
+	}
+
+	public void setDepth(int depth) {
+		this.depth = depth;
+	}
+
 	public boolean contains(int x, int y) {
 		return bounds.contains(x, y);
 	}
@@ -110,6 +124,29 @@ public class SmartViewerItem<T> {
 	public boolean intersects(int x, int y, int width, int height) {
 		return (x < absoluteLocation.x + bounds.width) && (y < absoluteLocation.y + bounds.height)
 				&& (x + width > absoluteLocation.x) && (y + height > absoluteLocation.y);
+	}
+
+	public boolean addChild(SmartViewerItem child) {
+		return children.add(child);
+	}
+
+	public boolean removeChild(SmartViewerItem child) {
+		return children.remove(child);
+	}
+
+	public boolean clearChildren() {
+		boolean empty = children.isEmpty();
+		children.clear();
+		return !empty;
+	}
+
+	public void setChildren(List<SmartViewerItem> children) {
+		this.children.clear();
+		this.children.addAll(children);
+	}
+
+	public List<SmartViewerItem> getChildren() {
+		return Collections.unmodifiableList(children);
 	}
 
 	@Override
@@ -131,7 +168,7 @@ public class SmartViewerItem<T> {
 		if (getClass() != obj.getClass()) {
 			return false;
 		}
-		SmartViewerItem<?> other = (SmartViewerItem<?>) obj;
+		SmartViewerItem other = (SmartViewerItem) obj;
 		if (data == null) {
 			if (other.data != null) {
 				return false;

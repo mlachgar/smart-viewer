@@ -2,12 +2,23 @@ package fr.mla.swt.smart.viewer.ui;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.dnd.DND;
+import org.eclipse.swt.dnd.DragSource;
+import org.eclipse.swt.dnd.DragSourceAdapter;
+import org.eclipse.swt.dnd.DragSourceEvent;
+import org.eclipse.swt.dnd.DropTarget;
+import org.eclipse.swt.dnd.DropTargetAdapter;
+import org.eclipse.swt.dnd.DropTargetEvent;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.events.ControlAdapter;
 import org.eclipse.swt.events.ControlEvent;
+import org.eclipse.swt.events.DisposeEvent;
+import org.eclipse.swt.events.DisposeListener;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.events.PaintListener;
 import org.eclipse.swt.graphics.GC;
@@ -19,35 +30,39 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 
+import fr.mla.swt.smart.viewer.dnd.DragAndDropManager;
 import fr.mla.swt.smart.viewer.layout.SmartGridLayout;
 import fr.mla.swt.smart.viewer.layout.SmartViewerLayout;
 import fr.mla.swt.smart.viewer.model.DirectionType;
-import fr.mla.swt.smart.viewer.model.ListModel;
 import fr.mla.swt.smart.viewer.model.OrientationType;
 import fr.mla.swt.smart.viewer.model.SmartModelListener;
-import fr.mla.swt.smart.viewer.renderer.DefaultObjectRenderer;
+import fr.mla.swt.smart.viewer.model.SmartViewerModel;
+import fr.mla.swt.smart.viewer.renderer.DefaultRenderer;
 import fr.mla.swt.smart.viewer.renderer.SmartViewerRenderer;
 import fr.mla.swt.smart.viewer.scroll.DefaultScrollManager;
 import fr.mla.swt.smart.viewer.scroll.ScrollManager;
 import fr.mla.swt.smart.viewer.scroll.ScrollViewport;
 
-public class SmartViewer<T> extends Canvas {
+public class SmartViewer extends Canvas {
 
 	private static final int BAR_SIZE = 16;
 
-	private ListModel<T> model;
-	private final List<T> dataList = new ArrayList<>();
-	private SmartModelListener<T> modelListener;
-	private SmartViewerItemsFactory<T> itemsFactory = new DefaultViewerItemsFactory<>();
+	private SmartViewerModel model;
+	private final List<Object> dataList = new ArrayList<>();
+	private SmartModelListener modelListener;
+	private SmartViewerItemsFactory itemsFactory = new DefaultViewerItemsFactory();
 	private InternalScroll hScroll;
 	private InternalScroll vScroll;
-	private SmartViewerRenderer<T> renderer = new DefaultObjectRenderer<T>();
-	private SmartViewerLayout<T> layout = new SmartGridLayout<>(-1, 2);
-	private ScrollManager<T> scrollManager = new DefaultScrollManager<T>();
-	private SelectionManager<T> selectionManager = new DefaultSelectionManager<>();
-	private final List<SmartViewerSelectionListener<T>> selectionListeners = new ArrayList<>();
+	private SmartViewerRenderer renderer = new DefaultRenderer();
+	private SmartViewerLayout layout = new SmartGridLayout(-1, 2);
+	private ScrollManager scrollManager = new DefaultScrollManager();
+	private SelectionManager selectionManager = new DefaultSelectionManager();
+	private DragAndDropManager dndManager;
+	private final List<SmartViewerSelectionListener> selectionListeners = new ArrayList<>();
+	private final List<SmartViewerActionListener> actionListeners = new ArrayList<>();
 
-	protected final List<SmartViewerItem<T>> items = new ArrayList<>();
+	protected final List<SmartViewerItem> items = new ArrayList<>();
+	private final Map<Object, SmartViewerItem> dataMap = new HashMap<>();
 
 	public SmartViewer(Composite parent, int style) {
 		super(parent, style);
@@ -60,6 +75,19 @@ public class SmartViewer<T> extends Canvas {
 		setUpControlListener(parent);
 		setUpMouseListener();
 		setUpKeyListener();
+
+		addDisposeListener(new DisposeListener() {
+
+			@Override
+			public void widgetDisposed(DisposeEvent e) {
+				if (renderer != null) {
+					renderer.dispose();
+				}
+				if (dndManager != null) {
+					dndManager.dispose();
+				}
+			}
+		});
 	}
 
 	private void setUpPaintListener() {
@@ -70,10 +98,19 @@ public class SmartViewer<T> extends Canvas {
 				int xScroll = hScroll.isVisible() ? hScroll.getValue() : 0;
 				int yScroll = vScroll.isVisible() ? vScroll.getValue() : 0;
 				final Rectangle paintBounds = new Rectangle(e.x, e.y, e.width, e.height);
+				Rectangle bounds = getBounds();
+				final Rectangle canvasBounds = new Rectangle(0, 0, bounds.width, bounds.height);
+				if (hScroll.isVisible()) {
+					canvasBounds.height -= BAR_SIZE;
+				}
+				if (vScroll.isVisible()) {
+					canvasBounds.width -= BAR_SIZE;
+				}
 				final Image img = new Image(getDisplay(), new Rectangle(0, 0, e.width, e.height));
 				final GC gc = new GC(img);
 				try {
-					renderer.renderItems(gc, paintBounds, new Point(xScroll, yScroll), items);
+					gc.setAntialias(SWT.ON);
+					renderer.renderItems(gc, canvasBounds, paintBounds, new Point(xScroll, yScroll), items);
 					if (hScroll.isVisible()) {
 						hScroll.draw(gc, e.x, e.y);
 					}
@@ -92,19 +129,16 @@ public class SmartViewer<T> extends Canvas {
 	}
 
 	private void setUpModelListener() {
-		modelListener = new SmartModelListener<T>() {
+		modelListener = new SmartModelListener() {
 
 			@Override
-			public void listChanged(Object source) {
-				dataList.clear();
-				dataList.addAll(model.getItems());
-				updateScrolls();
-				refresh();
+			public void modelChanged(Object source) {
+				refresh(true);
 			}
 
 			@Override
-			public void itemModified(Object source, T data) {
-				SmartViewerItem<T> item = findItem(data);
+			public void itemModified(Object source, Object data) {
+				SmartViewerItem item = dataMap.get(data);
 				if (item != null) {
 					redraw(item);
 				}
@@ -117,7 +151,7 @@ public class SmartViewer<T> extends Canvas {
 		parent.addControlListener(new ControlAdapter() {
 			@Override
 			public void controlResized(ControlEvent e) {
-				refresh();
+				refresh(false);
 			}
 		});
 	}
@@ -142,7 +176,6 @@ public class SmartViewer<T> extends Canvas {
 						handleMouseDown(e);
 						break;
 					case SWT.MouseEnter:
-
 						break;
 					case SWT.MouseExit:
 						if (hScroll.isVisible()) {
@@ -156,6 +189,12 @@ public class SmartViewer<T> extends Canvas {
 
 						break;
 					case SWT.MouseWheel:
+						break;
+					case SWT.MouseDoubleClick:
+						final SmartViewerItem item = getItemAt(e.x, e.y);
+						if (item != null) {
+							fireMouseDoubleClick(item, e.x, e.y);
+						}
 						break;
 					}
 				}
@@ -190,43 +229,157 @@ public class SmartViewer<T> extends Canvas {
 		addListener(SWT.KeyDown, listener);
 	}
 
-	protected void handleKeyReleased(final Event e) {
+	private List<SmartViewerItem> draggingItems = new ArrayList<SmartViewerItem>();
+	private Image dragImage = null;
 
+	private void setUpDrag() {
+		final DragSource dragSource = new DragSource(this, dndManager.getDragOperations());
+		dragSource.addDragListener(new DragSourceAdapter() {
+
+			@Override
+			public void dragSetData(final DragSourceEvent event) {
+				event.data = dndManager.getDragData(draggingItems);
+			}
+
+			@Override
+			public void dragFinished(final DragSourceEvent event) {
+				if (event.image != null && !event.image.isDisposed()) {
+					event.image.dispose();
+				}
+				draggingItems.clear();
+				if (dragImage != null) {
+					dragImage.dispose();
+				}
+			}
+
+			@Override
+			public void dragStart(final DragSourceEvent event) {
+				SmartViewerItem clickedItem = getItemAt(event.x, event.y);
+				if (clickedItem != null) {
+					Collection<SmartViewerItem> selectedItems = selectionManager.getSelectedItems();
+					if (!selectedItems.isEmpty()) {
+						Transfer[] transfers = dndManager.getDragTransfers(event, selectedItems);
+						if (transfers == null) {
+							event.doit = false;
+						} else {
+							dragSource.setTransfer(transfers);
+							if (dragImage != null) {
+								dragImage.dispose();
+							}
+							draggingItems.addAll(selectedItems);
+							dragImage = dndManager.getDragImage(getDisplay(), renderer, draggingItems);
+							event.image = dragImage;
+						}
+					} else {
+						event.doit = false;
+					}
+				} else {
+					event.doit = false;
+					draggingItems.clear();
+				}
+			}
+
+		});
 	}
 
-	protected void handleKeyPressed(final Event e) {
+	private void setUpDrop() {
+		final DropTarget target = new DropTarget(this, dndManager.getDropOperations());
+		target.setTransfer(dndManager.getDropTransfers());
+		target.addDropListener(new DropTargetAdapter() {
+
+			@Override
+			public void drop(final DropTargetEvent event) {
+				final Point p = toControl(event.x, event.y);
+				SmartViewerItem targetItem = null;
+				int index = layout.itemAt(getBounds(), p.x, p.y, items);
+				if (index >= items.size()) {
+					index = items.size() - 1;
+				}
+				if (index > -1) {
+					targetItem = items.get(index);
+				}
+
+				// internal drop
+				if (!draggingItems.isEmpty()) {
+					dndManager.performInternalDrop(event, targetItem, draggingItems);
+				}
+				// External drop
+				else {
+					dndManager.performExternalDrop(event, targetItem);
+				}
+			}
+
+			@Override
+			public void dragEnter(final DropTargetEvent event) {
+				if (!dndManager.canDrop(event, draggingItems, !draggingItems.isEmpty())) {
+					event.detail = DND.DROP_NONE;
+				}
+			}
+
+		});
+	}
+
+	protected void handleKeyReleased(final Event e) {
 		if (!e.doit) {
 			return;
 		}
-		int index = getLastSelectedIndex();
-		if (index == -1) {
-			if (items.isEmpty()) {
-				return;
-			} else {
-				index = 0;
+		final boolean ctrlMask = (e.stateMask & SWT.CTRL) != 0;
+		switch (e.keyCode) {
+		case SWT.CR:
+			fireDefaultAction();
+			break;
+
+		case SWT.END:
+			if (vScroll.isVisible()) {
+				vScroll.goToEnd();
 			}
+			if (hScroll.isVisible()) {
+				hScroll.goToEnd();
+			}
+			break;
+		case SWT.HOME:
+			if (vScroll.isVisible()) {
+				vScroll.resetScroll();
+			}
+			if (hScroll.isVisible()) {
+				hScroll.resetScroll();
+			}
+			break;
+		case 'a':
+			if (ctrlMask) {
+				if (selectionManager.selectAll()) {
+					fireSelectionChanged();
+				}
+			}
+			break;
+		}
+	}
+
+	protected void handleKeyPressed(final Event e) {
+		if (!e.doit || items.isEmpty()) {
+			return;
 		}
 		final boolean shiftMask = (e.stateMask & SWT.SHIFT) != 0;
-		int nextIndex = -1;
+		DirectionType directionType = null;
 		switch (e.keyCode) {
 		case SWT.ARROW_LEFT:
 			if (layout.isNavigable(OrientationType.HORIZONTAL)) {
-				nextIndex = layout.getNeighborItem(index, DirectionType.LEFT, items);
+				directionType = DirectionType.LEFT;
 			}
 			break;
 		case SWT.ARROW_RIGHT:
 			if (layout.isNavigable(OrientationType.HORIZONTAL)) {
-				nextIndex = layout.getNeighborItem(index, DirectionType.RIGHT, items);
+				directionType = DirectionType.RIGHT;
 			}
 			break;
 		case SWT.ARROW_UP:
 			if (layout.isNavigable(OrientationType.VERTICAL)) {
-				nextIndex = layout.getNeighborItem(index, DirectionType.UP, items);
+				directionType = DirectionType.UP;
 			}
 			break;
 		case SWT.ARROW_DOWN:
 			if (layout.isNavigable(OrientationType.VERTICAL)) {
-				nextIndex = layout.getNeighborItem(index, DirectionType.DOWN, items);
+				directionType = DirectionType.DOWN;
 			}
 			break;
 		case SWT.PAGE_DOWN:
@@ -235,33 +388,42 @@ public class SmartViewer<T> extends Canvas {
 			} else if (vScroll.isVisible()) {
 				vScroll.nextPage();
 			}
-			break;
+			return;
 		case SWT.PAGE_UP:
 			if (hScroll.isVisible()) {
 				hScroll.previousPage();
 			} else if (vScroll.isVisible()) {
 				vScroll.previousPage();
 			}
-			break;
+			return;
 		}
-		if (nextIndex >= 0 && nextIndex < items.size()) {
-			SmartViewerItem<T> nextItem = items.get(nextIndex);
-			if (shiftMask) {
-				if (selectionManager.appendToSelection(nextItem, true)) {
-					showControl(nextItem);
-					fireSelectionChanged();
-				}
+		if (directionType != null) {
+			SmartViewerItem item = getLastSelectedItem();
+			SmartViewerItem nextItem = null;
+			if (item == null) {
+				nextItem = items.get(0);
 			} else {
-				if (selectionManager.selectOnly(items, nextItem, true)) {
-					showControl(nextItem);
-					fireSelectionChanged();
+				List<SmartViewerItem> itemsList = selectionManager.getDepthItems(item.getDepth());
+				nextItem = layout.getNeighborItem(item, directionType, itemsList);
+			}
+			if (nextItem != null) {
+				if (shiftMask) {
+					if (selectionManager.appendToSelection(nextItem, true)) {
+						showControl(nextItem);
+						fireSelectionChanged();
+					}
+				} else {
+					if (selectionManager.selectOnly(nextItem, true)) {
+						showControl(nextItem);
+						fireSelectionChanged();
+					}
 				}
 			}
 		}
 	}
 
 	private void handleMouseDown(Event e) {
-		final SmartViewerItem<T> item = getItemAt(e.x, e.y);
+		final SmartViewerItem item = getItemAt(e.x, e.y);
 		final boolean dragDetect = dragDetect(e);
 		if (item != null) {
 			if (isLeftClick(e)) {
@@ -270,43 +432,43 @@ public class SmartViewer<T> extends Canvas {
 						fireSelectionChanged();
 					}
 				} else if ((e.stateMask & SWT.SHIFT) != 0) {
-					if (selectionManager.expandSelectionTo(items, item)) {
+					if (selectionManager.expandSelectionTo(item)) {
 						fireSelectionChanged();
 					}
 				} else {
-					if (selectionManager.selectOnly(items, item, !dragDetect)) {
+					if (selectionManager.selectOnly(item, !dragDetect)) {
 						fireSelectionChanged();
 					}
 				}
 			} else if ((e.stateMask & SWT.CTRL) == 0) {
-				if (selectionManager.selectOnly(items, item, !dragDetect)) {
+				if (selectionManager.selectOnly(item, !dragDetect)) {
 					fireSelectionChanged();
 				}
 			}
 		} else if (isLeftClick(e) || selectionManager.getSelectedData().isEmpty()) {
-			selectionManager.clearSelection(items, null);
+			selectionManager.clearSelection(null);
 			fireSelectionChanged();
 		}
 		setFocus();
 	}
 
-	private int getLastSelectedIndex() {
-		Collection<T> data = selectionManager.getSelectedData();
-		if (!data.isEmpty()) {
-			T last = null;
-			for (final T d : data) {
-				last = d;
+	private SmartViewerItem getLastSelectedItem() {
+		Collection<SmartViewerItem> selectedItems = selectionManager.getSelectedItems();
+		if (!selectedItems.isEmpty()) {
+			SmartViewerItem last = null;
+			for (final SmartViewerItem item : selectedItems) {
+				last = item;
 			}
-			return model.indexOf(last);
+			return last;
 		}
-		return -1;
+		return null;
 	}
 
 	protected boolean isLeftClick(final Event e) {
 		return e.button == 1;
 	}
 
-	public void setModel(ListModel<T> model) {
+	public void setModel(SmartViewerModel model) {
 		if (this.model != null) {
 			this.model.removeListChangeListener(modelListener);
 		}
@@ -316,47 +478,56 @@ public class SmartViewer<T> extends Canvas {
 			model.addListChangeListener(modelListener);
 			dataList.addAll(model.getItems());
 		}
-		refresh();
+		refresh(true);
 	}
 
-	public void setRenderer(SmartViewerRenderer<T> renderer) {
+	public void setRenderer(SmartViewerRenderer renderer) {
 		if (renderer != null) {
 			this.renderer = renderer;
 		}
 	}
 
-	public void setLayout(SmartViewerLayout<T> layout) {
+	public void setLayout(SmartViewerLayout layout) {
 		if (layout != null) {
 			this.layout = layout;
 		} else {
-			layout = new SmartGridLayout<>();
+			layout = new SmartGridLayout();
 		}
 	}
 
-	public void setScrollManager(ScrollManager<T> scrollManager) {
+	public void setScrollManager(ScrollManager scrollManager) {
 		if (scrollManager != null) {
 			this.scrollManager = scrollManager;
 		} else {
-			this.scrollManager = new DefaultScrollManager<T>();
+			this.scrollManager = new DefaultScrollManager();
 		}
 	}
 
-	public void setSelectionManager(SelectionManager<T> selectionManager) {
+	public void setDragAndDropManager(DragAndDropManager dragAndDropManager) {
+		if (this.dndManager == null && dragAndDropManager != null) {
+			this.dndManager = dragAndDropManager;
+			setUpDrag();
+			setUpDrop();
+		}
+	}
+
+	public void setSelectionManager(SelectionManager selectionManager) {
 		if (selectionManager != null) {
 			this.selectionManager = selectionManager;
 		} else {
-			this.selectionManager = new DefaultSelectionManager<>();
+			this.selectionManager = new DefaultSelectionManager();
 		}
+		this.selectionManager.setItems(items);
 	}
 
-	public void setItemsFactory(SmartViewerItemsFactory<T> itemsFactory) {
+	public void setItemsFactory(SmartViewerItemsFactory itemsFactory) {
 		if (itemsFactory != null) {
 			this.itemsFactory = itemsFactory;
 		}
 	}
 
 	public void updateScrolls() {
-		Rectangle area = super.getClientArea();
+		Rectangle area = super.getBounds();
 		if (!dataList.isEmpty()) {
 			Point neededSize = layout.getNeededSize(area.width, area.height, items);
 			if (neededSize.x > area.width) {
@@ -381,7 +552,7 @@ public class SmartViewer<T> extends Canvas {
 
 	@Override
 	public Rectangle getClientArea() {
-		Rectangle clientArea = super.getClientArea();
+		Rectangle clientArea = super.getBounds();
 		if (clientArea.width > 0 && clientArea.height > 0) {
 			Point neededSize = layout.getNeededSize(clientArea.width, clientArea.height, items);
 			if (neededSize.x > clientArea.width) {
@@ -395,8 +566,8 @@ public class SmartViewer<T> extends Canvas {
 	}
 
 	public ScrollViewport getViewport() {
-		return new ScrollViewport(getClientArea(), hScroll.isVisible() ? hScroll.getValue() : -1,
-				vScroll.isVisible() ? vScroll.getValue() : -1);
+		return new ScrollViewport(getClientArea(), hScroll.isVisible() ? hScroll.getValue() : 0,
+				vScroll.isVisible() ? vScroll.getValue() : 0);
 	}
 
 	@Override
@@ -415,22 +586,27 @@ public class SmartViewer<T> extends Canvas {
 		}
 		final Point p = layout.getPreferredSize(size.x, size.y, items);
 		if (p.x != SWT.DEFAULT) {
-			p.x += vBar;
+			p.x += hBar;
 		}
 		if (p.y != SWT.DEFAULT) {
-			p.y += hBar;
+			p.y += vBar;
 		}
 		return p;
 	}
 
-	public void refresh() {
+	public void refresh(boolean modelChanged) {
+		if (modelChanged) {
+			dataList.clear();
+			dataList.addAll(model.getItems());
+			allocateItems();
+		}
 		int modelSize = dataList.size();
+		getParent().layout(true, true);
 		updateScrolls();
 		if (modelSize > 0) {
 			Rectangle clientArea = getClientArea();
-			allocateItems();
 			layout.layoutItems(clientArea.width, clientArea.height, items);
-			scrollManager.applyScroll(getViewport(), layout, items, selectionManager.getSelectedData());
+			scrollManager.applyScroll(getViewport(), layout, items);
 		}
 		redrawCanvas();
 	}
@@ -440,7 +616,7 @@ public class SmartViewer<T> extends Canvas {
 		update();
 	}
 
-	public void redraw(final SmartViewerItem<T> item) {
+	public void redraw(final SmartViewerItem item) {
 		if (!isDisposed()) {
 			redraw(item.getX() - hScroll.getValue(), item.getY() - vScroll.getValue(), item.getWidth(),
 					item.getHeight(), false);
@@ -458,7 +634,7 @@ public class SmartViewer<T> extends Canvas {
 		return filled;
 	}
 
-	public Rectangle getItemBounds(final SmartViewerItem<T> item) {
+	public Rectangle getItemBounds(final SmartViewerItem item) {
 		int x = item.getX();
 		int y = item.getY();
 		if (hScroll.isVisible()) {
@@ -470,45 +646,55 @@ public class SmartViewer<T> extends Canvas {
 		return new Rectangle(x, y, item.getWidth(), item.getHeight());
 	}
 
-	public SmartViewerItem<T> findItem(final T data) {
-		if (data != null) {
-			for (final SmartViewerItem<T> item : items) {
-				if (data.equals(item.getData())) {
-					return item;
-				}
-			}
-		}
-		return null;
-	}
-
 	private void allocateItems() {
 		int modelSize = dataList.size();
 		//
 		for (int i = 0; i < items.size(); i++) {
 			if (i < modelSize) {
-				SmartViewerItem<T> item = items.get(i);
+				SmartViewerItem item = items.get(i);
 				item.setData(dataList.get(i), i);
 				item.setSelected(false);
+				item.clearChildren();
 			} else {
 				break;
 			}
 		}
 		if (modelSize > items.size()) {
 			for (int i = items.size(); i < modelSize; i++) {
-				items.add(itemsFactory.createItem(dataList.get(i), i));
+				items.add(itemsFactory.createItem(dataList.get(i), i, 0));
 			}
 		} else {
-			Iterator<SmartViewerItem<T>> it = items.iterator();
 			while (items.size() > modelSize) {
-				it.remove();
+				items.remove(items.size() - 1);
 			}
 		}
+		dataMap.clear();
 		for (int i = 0; i < items.size(); i++) {
-			items.get(i).setData(dataList.get(i), i);
+			SmartViewerItem item = items.get(i);
+			Object data = dataList.get(i);
+			item.setData(data, i);
+			dataMap.put(data, item);
+			allocateChildren(item);
+		}
+		selectionManager.setItems(items);
+	}
+
+	private void allocateChildren(SmartViewerItem item) {
+		Object data = item.getData();
+		List<?> children = model.getChildren(data);
+		if (children != null) {
+			int depth = item.getDepth() + 1;
+			for (int j = 0; j < children.size(); j++) {
+				Object childData = children.get(j);
+				SmartViewerItem child = itemsFactory.createItem(childData, j, depth);
+				item.addChild(child);
+				dataMap.put(childData, child);
+				allocateChildren(child);
+			}
 		}
 	}
 
-	protected void showControl(SmartViewerItem<T> item) {
+	protected void showControl(SmartViewerItem item) {
 		if (hScroll.isVisible()) {
 			hScroll.fastScroll(scrollManager.computeScrollToMakeVisible(getViewport(), OrientationType.HORIZONTAL,
 					layout, item));
@@ -520,10 +706,64 @@ public class SmartViewer<T> extends Canvas {
 		}
 	}
 
+	public SmartViewerItem getItemAt(int x, int y) {
+		for (final SmartViewerItem item : items) {
+			if (item.contains(x, y)) {
+				SmartViewerItem lastChild = null;
+				for (SmartViewerItem child : item.getChildren()) {
+					if (child.contains(x, y)) {
+						lastChild = child;
+					}
+				}
+				if (lastChild != null) {
+					return lastChild;
+				}
+				return item;
+			}
+		}
+		return null;
+	}
+
+	public boolean addSelectionListener(SmartViewerSelectionListener l) {
+		return selectionListeners.add(l);
+	}
+
+	public boolean removeSelectionListener(SmartViewerSelectionListener l) {
+		return selectionListeners.remove(l);
+	}
+
+	protected void fireSelectionChanged() {
+		redrawCanvas();
+		for (int i = selectionListeners.size() - 1; i >= 0; i--) {
+			selectionListeners.get(i).selctionChanged(this, selectionManager.getSelectedData());
+		}
+	}
+
+	public boolean addActionListener(SmartViewerActionListener l) {
+		return actionListeners.add(l);
+	}
+
+	public boolean removeActionListener(SmartViewerActionListener l) {
+		return actionListeners.remove(l);
+	}
+
+	protected void fireMouseDoubleClick(SmartViewerItem item, int x, int y) {
+		for (int i = actionListeners.size() - 1; i >= 0; i--) {
+			actionListeners.get(i).mouseDoubleClick(this, item, x, y);
+		}
+	}
+
+	protected void fireDefaultAction() {
+		for (int i = actionListeners.size() - 1; i >= 0; i--) {
+			actionListeners.get(i).defaultAction(this, selectionManager.getSelectedItems());
+		}
+	}
+
 	private class InternalScroll extends VirtualScroll {
 
 		public InternalScroll(OrientationType type) {
 			super(SmartViewer.this, type);
+			setBackground(getDisplay().getSystemColor(SWT.COLOR_DARK_GRAY));
 		}
 
 		@Override
@@ -552,32 +792,8 @@ public class SmartViewer<T> extends Canvas {
 
 		@Override
 		protected void scrolled() {
-			scrollManager.applyScroll(getViewport(), layout, items, selectionManager.getSelectedData());
+			scrollManager.applyScroll(getViewport(), layout, items);
 			redrawCanvas();
-		}
-	}
-
-	public SmartViewerItem<T> getItemAt(int x, int y) {
-		for (final SmartViewerItem<T> item : items) {
-			if (item.contains(x, y)) {
-				return item;
-			}
-		}
-		return null;
-	}
-
-	public boolean addSelectionListener(SmartViewerSelectionListener<T> l) {
-		return selectionListeners.add(l);
-	}
-
-	public boolean removeSelectionListener(SmartViewerSelectionListener<T> l) {
-		return selectionListeners.remove(l);
-	}
-
-	protected void fireSelectionChanged() {
-		redrawCanvas();
-		for (int i = selectionListeners.size() - 14; i >= 0; i--) {
-			selectionListeners.get(i).selctionChanged(this, selectionManager.getSelectedData());
 		}
 	}
 

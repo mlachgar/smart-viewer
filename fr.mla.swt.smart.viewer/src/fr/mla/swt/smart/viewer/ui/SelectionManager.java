@@ -3,20 +3,24 @@ package fr.mla.swt.smart.viewer.ui;
 import java.util.Collection;
 import java.util.List;
 
-public interface SelectionManager<T> {
+public interface SelectionManager {
 
-	public Collection<T> getSelectedData();
+	public Collection<?> getSelectedData();
 
-	public void clearSelection(List<SmartViewerItem<T>> items, SmartViewerItem<T> exceptedItem);
+	public Collection<SmartViewerItem> getSelectedItems();
 
-	public boolean selectRange(List<SmartViewerItem<T>> items, int start, int end);
+	public void clearSelection(SmartViewerItem exceptedItem);
 
-	public boolean appendToSelection(SmartViewerItem<T> item, boolean unselectIfSelected);
+	public boolean appendToSelection(SmartViewerItem item, boolean unselectIfSelected);
 
-	public boolean selectOnly(List<SmartViewerItem<T>> items, SmartViewerItem<T> item, boolean forceClear);
+	public boolean selectOnly( SmartViewerItem item, boolean forceClear);
 
-	public boolean expandSelectionTo(List<SmartViewerItem<T>> items, SmartViewerItem<T> item);
+	public boolean expandSelectionTo(SmartViewerItem item);
 
-	boolean selectNext(List<SmartViewerItem<T>> items, int index, int shift, boolean clearSelection);
+	void setItems(List<SmartViewerItem> items);
+
+	List<SmartViewerItem> getDepthItems(int depth);
+
+	boolean selectAll();
 
 }

@@ -47,7 +47,7 @@ public abstract class VirtualScroll implements Listener {
 		// backgroundColor =
 		// parent.getDisplay().getSystemColor(SWT.COLOR_DARK_GRAY);
 		thumbColor = parent.getDisplay().getSystemColor(SWT.COLOR_GRAY);
-		borderColor = parent.getDisplay().getSystemColor(SWT.COLOR_BLACK);
+		borderColor = parent.getDisplay().getSystemColor(SWT.COLOR_DARK_GRAY);
 		if (type == OrientationType.HORIZONTAL) {
 			prevImage = Activator.getImage("round_arrow_left.png");
 			nextImage = Activator.getImage("round_arrow_right.png");
@@ -100,17 +100,13 @@ public abstract class VirtualScroll implements Listener {
 		Color bg = gc.getBackground();
 		Color fg = gc.getForeground();
 		try {
-			drawImage(gc, startImage, startArrowBounds, dx, dy);
-			drawImage(gc, prevImage, prevArrowBounds, dx, dy);
-			drawImage(gc, nextImage, nextArrowBounds, dx, dy);
-			drawImage(gc, endImage, endArrowBounds, dx, dy);
 			if (backgroundColor != null) {
 				gc.setBackground(backgroundColor);
 				gc.fillRoundRectangle(bounds.x - dx, bounds.y - dy, bounds.width, bounds.height, 10, 10);
 			}
 			if (borderColor != null) {
 				gc.setForeground(borderColor);
-				gc.drawRoundRectangle(bounds.x - dx, bounds.y - dy, bounds.width - 1, bounds.height - 1, 10, 10);
+				gc.drawRectangle(bounds.x - dx, bounds.y - dy, bounds.width - 1, bounds.height - 1);
 			}
 			gc.setBackground(thumbColor);
 			if (type == OrientationType.HORIZONTAL) {
@@ -120,6 +116,10 @@ public abstract class VirtualScroll implements Listener {
 				gc.fillRoundRectangle(thumbBounds.x - dx, thumbBounds.y - dy, thumbBounds.width, thumbBounds.height,
 						10, 10);
 			}
+			drawImage(gc, startImage, startArrowBounds, dx, dy);
+			drawImage(gc, prevImage, prevArrowBounds, dx, dy);
+			drawImage(gc, nextImage, nextArrowBounds, dx, dy);
+			drawImage(gc, endImage, endArrowBounds, dx, dy);
 		} finally {
 			gc.setBackground(bg);
 			gc.setForeground(fg);

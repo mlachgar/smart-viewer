@@ -9,19 +9,19 @@ import fr.mla.swt.smart.viewer.ui.SmartViewerItem;
 import fr.mla.swt.smart.viewer.model.DirectionType;
 import fr.mla.swt.smart.viewer.model.OrientationType;
 
-public interface SmartViewerLayout<T> {
+public interface SmartViewerLayout {
 
-	public void layoutItems(int width, int height, List<SmartViewerItem<T>> items);
+	public void layoutItems(int width, int height, List<SmartViewerItem> items);
 
-	public Point getNeededSize(int width, int height, List<SmartViewerItem<T>> items);
+	public Point getNeededSize(int width, int height, List<SmartViewerItem> items);
 
-	public int itemAt(Rectangle bounds, int x, int y, List<SmartViewerItem<T>> items);
+	public int itemAt(Rectangle bounds, int x, int y, List<SmartViewerItem> items);
 
 	public Point getSpacing();
 
 	public boolean isNavigable(OrientationType type);
 
-	public Point getPreferredSize(int width, int height, List<SmartViewerItem<T>> items);
+	public Point getPreferredSize(int width, int height, List<SmartViewerItem> items);
 
-	public int getNeighborItem(int index, DirectionType type, List<SmartViewerItem<T>> items);
+	public SmartViewerItem getNeighborItem(SmartViewerItem item, DirectionType type, List<SmartViewerItem> items);
 }
