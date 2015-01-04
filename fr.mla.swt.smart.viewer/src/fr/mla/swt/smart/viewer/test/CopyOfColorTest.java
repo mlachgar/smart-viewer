@@ -11,12 +11,15 @@ import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.events.PaintListener;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.layout.RowLayout;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
@@ -25,33 +28,45 @@ import org.eclipse.swt.widgets.Spinner;
 
 import fr.mla.swt.smart.viewer.ui.ColorCache;
 
-public class ColorTest {
+public class CopyOfColorTest {
 
 	public static void main(String[] args) {
 		Display display = new Display();
 		Shell shell = new Shell(display);
 		GridLayout l = new GridLayout(2, true);
 		shell.setLayout(l);
-		int power = 5;
-		final int max = (int) Math.pow(2, power);
-		final GroupColor[] colors = getColors(power, new float[] { 0f, 0.5f, 0.5f }, new float[] { 1f, 1f, 1f });
-
+		final ColorModel model = new ColorModel();
 		Composite cmp = new Composite(shell, SWT.NONE);
-		cmp.setLayout(new RowLayout());
+		RowLayout rowLayout = new RowLayout();
+		rowLayout.center = true;
+		cmp.setLayout(rowLayout);
 		cmp.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false, 2, 1));
-		Spinner sp = new Spinner(cmp, SWT.NONE);
+		final Spinner sp = new Spinner(cmp, SWT.NONE);
 		sp.setMinimum(2);
 		sp.setMaximum(10);
+		sp.setSelection(model.getPower());
+
+		final ColorParamComposite hParam = new ColorParamComposite(cmp, SWT.NONE, "Hue");
+		final ColorParamComposite sParam = new ColorParamComposite(cmp, SWT.NONE, "Stauration");
+		final ColorParamComposite bParam = new ColorParamComposite(cmp, SWT.NONE, "Brightness");
+
+		hParam.setRange(model.getMinH(), model.getMaxH());
+		sParam.setRange(model.getMinS(), model.getMaxS());
+		bParam.setRange(model.getMinB(), model.getMaxB());
+
+		Button button = new Button(cmp, SWT.FLAT);
+		button.setText("Generate");
 
 		final TableViewer colorTable = new TableViewer(shell, SWT.V_SCROLL | SWT.BORDER);
 		colorTable.setContentProvider(ArrayContentProvider.getInstance());
 		final ColorLabelProvider labelProvider = new ColorLabelProvider(display);
 		colorTable.setLabelProvider(labelProvider);
-		colorTable.setInput(colors);
 		TableLayout tableLayout = new TableLayout();
 		colorTable.getTable().setLayout(tableLayout);
 		colorTable.getTable().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 		ColumnViewerToolTipSupport.enableFor(colorTable);
+
+		colorTable.setInput(model.getColors());
 
 		final Canvas wheelCanvas = new Canvas(shell, SWT.BORDER);
 		GridData canvasData = new GridData(SWT.CENTER, SWT.CENTER, true, true);
@@ -62,9 +77,14 @@ public class ColorTest {
 
 			@Override
 			public void paintControl(PaintEvent e) {
+				GroupColor[] colors = model.getColors();
+				if (colors == null) {
+					return;
+				}
 				Image image = new Image(e.display, 300, 300);
 				GC gc = new GC(image);
 				try {
+					int max = model.getSize();
 					int step = 360 / max;
 					gc.setAdvanced(true);
 					gc.setAntialias(SWT.ON);
@@ -73,7 +93,7 @@ public class ColorTest {
 					gc.setLineWidth(1);
 					for (int i = 0; i < colors.length; i++) {
 						gc.setBackground(labelProvider.cache.getColor(colors[i].red, colors[i].green, colors[i].blue));
-						gc.fillArc(0, 0, 300, 300, (int) (colors[i].hue * 360), step + 1);
+						gc.fillArc(2, 2, 296, 296, (int) (colors[i].hue * 360), step + 1);
 						// double t = colors[i].hue * 2 * Math.PI;
 						// gc.drawLine(150, 150, 150 + (int) (Math.cos(t) *
 						// 150.0), 150 + (int) (Math.sin(t) * 150.0));
@@ -90,12 +110,24 @@ public class ColorTest {
 						gc.drawLine(150, 150, 150 + (int) (Math.cos(t1) * 150.0), 150 + (int) (Math.sin(t1) * 150.0));
 					}
 
-					gc.drawOval(0, 0, 299, 299);
+					gc.drawOval(2, 2, 296, 296);
 				} finally {
 					e.gc.drawImage(image, -e.x, -e.y);
 					gc.dispose();
 					image.dispose();
 				}
+			}
+		});
+
+		button.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				model.setPower(sp.getSelection());
+				model.setMinValue(hParam.getMinValue(), sParam.getMinValue(), bParam.getMinValue());
+				model.setMaxValue(hParam.getMaxValue(), sParam.getMaxValue(), bParam.getMaxValue());
+				labelProvider.cache.dispose();
+				colorTable.setInput(model.getColors());
+				wheelCanvas.redraw();
 			}
 		});
 
@@ -114,25 +146,6 @@ public class ColorTest {
 				display.sleep();
 		}
 		display.dispose();
-	}
-
-	private static GroupColor[] getColors(int power, float[] minValue, float[] maxValue) {
-		int max = (int) Math.pow(2, power);
-		GroupColor[] colors = new GroupColor[max];
-		for (int i = 0; i < colors.length; i++) {
-			float h = 0f;
-			float s = minValue[1];
-			float b = minValue[2];
-			for (int p = 0; p < power; p++) {
-				int c = (int) Math.pow(2, p);
-				h += ((i / c) % 2) * (maxValue[0] - minValue[0]) / 2 / c;
-				s += ((i / c) % 2) * (maxValue[1] - minValue[1]) / 2 / c;
-				b += ((i / c) % 2) * (maxValue[2] - minValue[2]) / 2 / c;
-			}
-
-			colors[i] = new GroupColor(h, s, b);
-		}
-		return colors;
 	}
 
 	private static class ColorLabelProvider extends ColumnLabelProvider {

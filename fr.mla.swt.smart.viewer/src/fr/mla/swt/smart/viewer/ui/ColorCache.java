@@ -33,5 +33,6 @@ public class ColorCache {
 		for (Color color : map.values()) {
 			color.dispose();
 		}
+		map.clear();
 	}
 }

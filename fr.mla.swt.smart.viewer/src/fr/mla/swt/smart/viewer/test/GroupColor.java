@@ -9,7 +9,6 @@ public class GroupColor {
 	public final float value;
 
 	public GroupColor(float h, float s, float v) {
-		h = (float) (h - Math.floor(h));
 		this.hue = h;
 		this.saturation = s;
 		this.value = v;
@@ -21,7 +20,7 @@ public class GroupColor {
 
 	@Override
 	public String toString() {
-		return String.format("rgb(%d,%d,%d) - hsv(%.2f,%.2f,%.2f)", red, green, blue, hue, saturation, value);
+		return String.format("rgb(%d,%d,%d) - hsv(%.2f:%.2f:%.2f)", red, green, blue, hue, saturation, value);
 	}
 
 }
