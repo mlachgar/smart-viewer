@@ -19,6 +19,7 @@ public class SmartViewerItem {
 	private boolean selected;
 	private final Map<Object, Object> dataMap = new HashMap<>();
 	private final List<SmartViewerItem> children = new ArrayList<SmartViewerItem>();
+	private final List<SmartViewerAction> toolbarActions = new ArrayList<>();
 
 	public SmartViewerItem() {
 
@@ -122,8 +123,10 @@ public class SmartViewerItem {
 	}
 
 	public boolean intersects(int x, int y, int width, int height) {
-		return (x < absoluteLocation.x + bounds.width) && (y < absoluteLocation.y + bounds.height)
-				&& (x + width > absoluteLocation.x) && (y + height > absoluteLocation.y);
+		return (x < absoluteLocation.x + bounds.width)
+				&& (y < absoluteLocation.y + bounds.height)
+				&& (x + width > absoluteLocation.x)
+				&& (y + height > absoluteLocation.y);
 	}
 
 	public boolean addChild(SmartViewerItem child) {
@@ -147,6 +150,17 @@ public class SmartViewerItem {
 
 	public List<SmartViewerItem> getChildren() {
 		return Collections.unmodifiableList(children);
+	}
+
+	public List<SmartViewerAction> getToolbarActions() {
+		return toolbarActions;
+	}
+
+	public void setToolbarActions(List<SmartViewerAction> actions) {
+		toolbarActions.clear();
+		if (actions != null) {
+			toolbarActions.addAll(actions);
+		}
 	}
 
 	@Override

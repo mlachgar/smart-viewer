@@ -1,4 +1,4 @@
-package fr.mla.swt.smart.viewer.test;
+package fr.mla.swt.smart.viewer.test.colors;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
@@ -44,7 +44,8 @@ public class ColorParamComposite extends Composite {
 	}
 
 	private void refreshLabel() {
-		label.setText(String.format("%s (%.2f)(%.2f)", title, getMinValue(), getMaxValue()));
+		label.setText(String.format("%s (%.2f)(%.2f)", title, getMinValue(),
+				getMaxValue()));
 	}
 
 	public int getMax() {
@@ -66,6 +67,7 @@ public class ColorParamComposite extends Composite {
 	public void setRange(float min, float max) {
 		minScale.setSelection((int) (min * 100));
 		maxScale.setSelection((int) (max * 100));
+		refreshLabel();
 	}
 
 }

@@ -3,6 +3,7 @@ package fr.mla.swt.smart.viewer.test;
 import java.io.File;
 
 import fr.mla.swt.smart.viewer.dnd.StringArrayTransfer;
+import fr.mla.swt.smart.viewer.group.GroupData;
 
 public class FilePathTransfer extends StringArrayTransfer {
 	private static FilePathTransfer instance = new FilePathTransfer();
@@ -18,9 +19,9 @@ public class FilePathTransfer extends StringArrayTransfer {
 
 	@Override
 	protected String serializeItem(Object data) {
-		if (data instanceof GroupFile) {
-			GroupFile gf = (GroupFile) data;
-			return gf.getFile().getPath();
+		if (data instanceof GroupData) {
+			GroupData gf = (GroupData) data;
+			return ((File) gf.getData()).getPath();
 		} else if (data instanceof File) {
 			File file = (File) data;
 			return file.getPath();

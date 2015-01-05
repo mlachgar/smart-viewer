@@ -1,4 +1,4 @@
-package fr.mla.swt.smart.viewer.ui;
+package fr.mla.swt.smart.viewer.color;
 
 import java.util.HashMap;
 import java.util.Map;

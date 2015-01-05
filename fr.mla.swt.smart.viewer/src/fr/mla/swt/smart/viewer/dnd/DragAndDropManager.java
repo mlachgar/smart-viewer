@@ -17,6 +17,7 @@ import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Display;
 
 import fr.mla.swt.smart.viewer.renderer.SmartViewerRenderer;
+import fr.mla.swt.smart.viewer.ui.SmartViewer;
 import fr.mla.swt.smart.viewer.ui.SmartViewerItem;
 
 public class DragAndDropManager {
@@ -55,7 +56,7 @@ public class DragAndDropManager {
 		return new Transfer[] { TextTransfer.getInstance() };
 	}
 
-	public Image getDragImage(Display display, SmartViewerRenderer renderer, List<SmartViewerItem> items) {
+	public Image getDragImage(Display display, SmartViewer viewer, List<SmartViewerItem> items) {
 		if (!items.isEmpty()) {
 			int shift = 6;
 			int margin = 2;
@@ -63,7 +64,7 @@ public class DragAndDropManager {
 			SmartViewerItem firstItem = items.get(0);
 			int width = firstItem.getWidth() + (shift * (maxDepth - 1)) + 2 * margin;
 			int height = firstItem.getHeight() + (shift * (maxDepth - 1)) + 2 * margin;
-
+			SmartViewerRenderer renderer = viewer.getRenderer();
 			Image dragImage = new Image(display, width, height);
 			final GC gc = new GC(dragImage);
 			try {
@@ -78,7 +79,7 @@ public class DragAndDropManager {
 					item.setSelected(false);
 					paintBounds.x = item.getX() - margin - dxy;
 					paintBounds.y = item.getY() - margin - dxy;
-					renderer.renderItem(gc, paintBounds, null, item);
+					renderer.renderItem(gc, paintBounds, viewer, item);
 					item.setSelected(selected);
 					gc.drawRoundRectangle(margin + dxy, margin + dxy, item.getWidth(), item.getHeight(), 10, 10);
 					dxy += shift;

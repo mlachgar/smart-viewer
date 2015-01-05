@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 
+import org.eclipse.jface.resource.ImageRegistry;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
@@ -20,10 +21,13 @@ public class Activator extends AbstractUIPlugin {
 	// The shared instance
 	private static Activator plugin;
 
+	private static ImageRegistry imageRegistry;
+
 	/**
 	 * The constructor
 	 */
 	public Activator() {
+
 	}
 
 	/*
@@ -48,11 +52,14 @@ public class Activator extends AbstractUIPlugin {
 	public void stop(BundleContext context) throws Exception {
 		plugin = null;
 		super.stop(context);
+		if (imageRegistry == null) {
+			imageRegistry.dispose();
+		}
 	}
 
 	/**
 	 * Returns the shared instance
-	 *
+	 * 
 	 * @return the shared instance
 	 */
 	public static Activator getDefault() {
@@ -60,16 +67,22 @@ public class Activator extends AbstractUIPlugin {
 	}
 
 	public static Image getImage(String fileName) {
-		URL url = Activator.class.getResource("/"+fileName);
-		if (url != null) {
-			try (InputStream in = url.openStream()) {
-				Image img = new Image(Display.getCurrent(), in);
-				return img;
-			} catch (IOException e) {
-				e.printStackTrace();
+		if (imageRegistry == null) {
+			imageRegistry = new ImageRegistry();
+		}
+		Image image = imageRegistry.get(fileName);
+		if (image == null) {
+			URL url = Activator.class.getResource("/" + fileName);
+			if (url != null) {
+				try (InputStream in = url.openStream()) {
+					image = new Image(Display.getCurrent(), in);
+					imageRegistry.put(fileName, image);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 		}
-		return null;
+		return image;
 	}
 
 }

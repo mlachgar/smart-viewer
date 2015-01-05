@@ -1,4 +1,4 @@
-package fr.mla.swt.smart.viewer.test;
+package fr.mla.swt.smart.viewer.group;
 
 import java.util.List;
 
@@ -11,7 +11,7 @@ import fr.mla.swt.smart.viewer.model.DirectionType;
 import fr.mla.swt.smart.viewer.model.OrientationType;
 import fr.mla.swt.smart.viewer.ui.SmartViewerItem;
 
-public class FileLayout implements SmartViewerLayout {
+public class DataGroupLayout implements SmartViewerLayout {
 
 	private int ITEM_SPACING = 5;
 	private int GROUP_SPACING = 10;
@@ -22,27 +22,25 @@ public class FileLayout implements SmartViewerLayout {
 	private OrientationType type;
 	private int expandedWidth;
 	private int expandedHeight;
-	private int maxStackWidth;
-	private int maxStackHeight;
-	private int maxStackCount = 10;
+	private int maxStackCount = 5;
 
-	public FileLayout(OrientationType type) {
+	public DataGroupLayout(OrientationType type) {
 		this(type, 2);
 	}
 
-	public FileLayout(OrientationType type, int rowsCount) {
+	public DataGroupLayout(OrientationType type, int rowsCount) {
 		this.rowsCount = rowsCount;
 		this.type = type;
-		this.expandedWidth = (rowsCount * itemWidth) + (rowsCount + 1) * ITEM_SPACING;
-		this.expandedHeight = (rowsCount * itemHeight) + (rowsCount + 1) * ITEM_SPACING;
-		maxStackWidth = (maxStackCount) * ITEM_SPACING + itemWidth;
-		maxStackHeight = (maxStackCount) * ITEM_SPACING + itemHeight;
+		this.expandedWidth = (rowsCount * itemWidth) + (rowsCount + 1)
+				* ITEM_SPACING;
+		this.expandedHeight = (rowsCount * itemHeight) + (rowsCount + 1)
+				* ITEM_SPACING;
 	}
 
 	private boolean isExpanded(SmartViewerItem item) {
 		Object data = item.getData();
-		if (data instanceof FileGroup) {
-			FileGroup group = (FileGroup) data;
+		if (data instanceof DataGroup) {
+			DataGroup group = (DataGroup) data;
 			return group.isExpanded();
 		}
 		return false;
@@ -63,18 +61,20 @@ public class FileLayout implements SmartViewerLayout {
 					columns++;
 				}
 				if (type == OrientationType.HORIZONTAL) {
-					width = (columns * itemWidth) + ((columns + 1) * ITEM_SPACING);
+					width = (columns * itemWidth)
+							+ ((columns + 1) * ITEM_SPACING);
 					height = expandedHeight;
 				} else {
 					width = expandedWidth;
-					height = (columns * itemHeight) + ((columns + 1) * ITEM_SPACING);
+					height = (columns * itemHeight)
+							+ ((columns + 1) * ITEM_SPACING);
 				}
 			}
 		} else {
-			width = maxStackWidth;
-			height = maxStackHeight;
+			width = expandedWidth;
+			height = expandedHeight;
 		}
-		return new Point(width, height);
+		return new Point(width + 16, height);
 	}
 
 	private Point computeItemsSize(List<SmartViewerItem> items) {
@@ -98,18 +98,24 @@ public class FileLayout implements SmartViewerLayout {
 		return new Point(width, height);
 	}
 
-	private void layoutChildren(List<SmartViewerItem> children, boolean expanded, int parentX, int parentY) {
+	private void layoutChildren(List<SmartViewerItem> children,
+			boolean expanded, int parentX, int parentY) {
 		int x = parentX + ITEM_SPACING;
 		int y = parentY + ITEM_SPACING;
-		if (!expanded && children.size() < maxStackCount) {
-			x += (maxStackCount - children.size()) * ITEM_SPACING / 2;
-			y += (maxStackCount - children.size()) * ITEM_SPACING / 2;
-		}
+		int width = itemWidth;
+		int height = itemHeight;
+		int startStackIndex = (rowsCount * 2) - 1;
+		int stackCount = Math.min(children.size() - startStackIndex,
+				maxStackCount);
 		for (int i = 0; i < children.size(); i++) {
+			if (!expanded && stackCount > 1 && i >= startStackIndex) {
+				width = itemWidth - (stackCount-1) * ITEM_SPACING;
+				height = itemHeight - (stackCount-1) * ITEM_SPACING;
+			}
 			SmartViewerItem child = children.get(i);
-			child.setBounds(x, y, itemWidth, itemHeight);
+			child.setBounds(x, y, width, height);
 			child.setAbsoluteLocation(x, y);
-			if (expanded) {
+			if (expanded || i < startStackIndex) {
 				if ((i + 1) % 2 == 0) {
 					if (type == OrientationType.HORIZONTAL) {
 						x += itemWidth + ITEM_SPACING;
@@ -126,7 +132,7 @@ public class FileLayout implements SmartViewerLayout {
 					}
 				}
 			} else {
-				if (i < maxStackCount) {
+				if (i < maxStackCount + startStackIndex) {
 					x += ITEM_SPACING;
 					y += ITEM_SPACING;
 				}
@@ -153,7 +159,8 @@ public class FileLayout implements SmartViewerLayout {
 	}
 
 	@Override
-	public int itemAt(Rectangle bounds, int x, int y, List<SmartViewerItem> items) {
+	public int itemAt(Rectangle bounds, int x, int y,
+			List<SmartViewerItem> items) {
 		for (int i = 0; i < items.size(); i++) {
 			if (items.get(i).contains(x, y)) {
 				return i;
@@ -173,7 +180,8 @@ public class FileLayout implements SmartViewerLayout {
 	}
 
 	@Override
-	public Point getNeededSize(int width, int height, List<SmartViewerItem> items) {
+	public Point getNeededSize(int width, int height,
+			List<SmartViewerItem> items) {
 		if (!items.isEmpty()) {
 			return computeItemsSize(items);
 		}
@@ -181,23 +189,18 @@ public class FileLayout implements SmartViewerLayout {
 	}
 
 	@Override
-	public Point getPreferredSize(int width, int height, List<SmartViewerItem> items) {
-		width = maxStackWidth;
-		height = maxStackHeight;
-		for (SmartViewerItem item : items) {
-			if (isExpanded(item)) {
-				width = expandedWidth;
-				height = expandedHeight;
-				break;
-			}
-		}
+	public Point getPreferredSize(int width, int height,
+			List<SmartViewerItem> items) {
+		width = expandedWidth;
+		height = expandedHeight;
 		if (type == OrientationType.HORIZONTAL) {
 			return new Point(SWT.DEFAULT, height + 2 * GROUP_SPACING);
 		}
 		return new Point(width + 2 * GROUP_SPACING, SWT.DEFAULT);
 	}
 
-	public int getNeighborItemIndex(int index, DirectionType type, List<SmartViewerItem> items) {
+	public int getNeighborItemIndex(int index, DirectionType type,
+			List<SmartViewerItem> items) {
 		switch (type) {
 		case LEFT:
 		case UP:
@@ -210,7 +213,8 @@ public class FileLayout implements SmartViewerLayout {
 	}
 
 	@Override
-	public SmartViewerItem getNeighborItem(SmartViewerItem item, DirectionType type, List<SmartViewerItem> items) {
+	public SmartViewerItem getNeighborItem(SmartViewerItem item,
+			DirectionType type, List<SmartViewerItem> items) {
 		int index = items.indexOf(item);
 		if (index != -1) {
 			int neighborIndex = getNeighborItemIndex(index, type, items);

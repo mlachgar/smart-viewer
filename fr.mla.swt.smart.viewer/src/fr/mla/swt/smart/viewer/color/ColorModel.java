@@ -1,15 +1,16 @@
-package fr.mla.swt.smart.viewer.test;
+package fr.mla.swt.smart.viewer.color;
+
 
 public class ColorModel {
 	private int power;
 	private int size;
-	private float[] minValue = new float[] { 0f, 0.3f, 0.3f };
-	private float[] maxValue = new float[] { 1f, 0.8f, 0.8f };
-	private GroupColor[] colors;
+	private float[] minValue = new float[] { 0f, 0.5f, 0.5f };
+	private float[] maxValue = new float[] { 1f, 1f, 1f };
+	private ColorDescriptor[] colors;
 	private boolean dirty = true;
 
 	public ColorModel() {
-		setPower(4);
+		setPower(5);
 	}
 
 	public void setPower(int power) {
@@ -76,25 +77,28 @@ public class ColorModel {
 		return Math.abs(maxValue[2] - minValue[2]);
 	}
 
-	public GroupColor[] getColors() {
+	public ColorDescriptor[] getAllColors() {
 		if (dirty) {
 			dirty = false;
-			colors = new GroupColor[size];
+			colors = new ColorDescriptor[size];
 			for (int i = 0; i < colors.length; i++) {
-				float h = getMinH();
-				float s = getMinS();
-				float b = getMinB();
-				for (int p = 0; p < power; p++) {
-					int c = (int) Math.pow(2, p);
-					int c2 = (int) Math.pow(2, (power - p - 1));
-					h += ((i / c) % 2) * getRangeH() / 2 / c;
-					s += ((i / c2) % 2) * getRangeS() / 2 / c2;
-					b += ((i / c2) % 2) * getRangeB() / 2 / c2;
-				}
-				colors[i] = new GroupColor(h, s, b);
+				colors[i] = getColor(i);
 			}
 		}
 		return colors;
 	}
 
+	public ColorDescriptor getColor(int i) {
+		float h = getMinH();
+		float s = getMinS();
+		float b = getMinB();
+		for (int p = 0; p < power; p++) {
+			int c = (int) Math.pow(2, p);
+			int c2 = (int) Math.pow(2, (power - p - 1));
+			h += ((i / c) % 2) * getRangeH() / 2 / c;
+			s += ((i / c2) % 2) * getRangeS() / 2 / c2;
+			b += ((i / c2) % 2) * getRangeB() / 2 / c2;
+		}
+		return new ColorDescriptor(h, s, b);
+	}
 }

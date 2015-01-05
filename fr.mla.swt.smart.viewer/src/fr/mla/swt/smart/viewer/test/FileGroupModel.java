@@ -8,61 +8,81 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import fr.mla.swt.smart.viewer.group.DataGroup;
+import fr.mla.swt.smart.viewer.group.GroupData;
 import fr.mla.swt.smart.viewer.model.AbstractSmartViewerModel;
 
 public class FileGroupModel extends AbstractSmartViewerModel {
 
 	private final FileGroupFactory factory = new FileGroupFactory();
-	private Map<File, GroupFile> filesMap = new LinkedHashMap<>();
-	private Map<String, FileGroup> groupsMap = new LinkedHashMap<>();
+	private Map<File, GroupData> filesMap = new LinkedHashMap<>();
+	private Map<String, DataGroup> groupsMap = new LinkedHashMap<>();
+	private List<Object> data = new ArrayList<>();
 
 	public FileGroupModel() {
-
+		data.add(new NewGroupData());
 	}
 
-	public FileGroup getGroupById(String id) {
+	public DataGroup getGroupById(String id) {
 		return groupsMap.get(id);
 	}
 
-	public void addToGroup(Collection<File> files, FileGroup group) {
+	public void addToGroup(Collection<File> files, DataGroup group) {
 		if (group == null) {
 			group = factory.newGroup();
 			groupsMap.put(group.getId(), group);
+			data.add(data.size() - 1, group);
 		}
 		for (File file : files) {
-			GroupFile fg = group.addFile(file);
+			GroupData fg = group.addData(file);
 			filesMap.put(file, fg);
 		}
 		fireModelChange();
 	}
 
-	public void removeGroups(Collection<FileGroup> groups) {
-		for (FileGroup group : groups) {
-			for (GroupFile file : group.getFiles()) {
-				filesMap.remove(file.getFile());
+	public void removeGroups(Collection<DataGroup> groups) {
+		for (DataGroup group : groups) {
+			for (GroupData file : group.getData()) {
+				filesMap.remove(file.getData());
 			}
 			groupsMap.remove(group.getId());
+			data.remove(group);
 		}
 		fireModelChange();
 	}
 
-	public void removeFromGroup(Collection<GroupFile> files) {
-		for (GroupFile file : files) {
-			file.getGroup().removeFile(file);
-			filesMap.remove(file.getFile());
+	public void removeGroup(DataGroup group) {
+		for (GroupData file : group.getData()) {
+			filesMap.remove(file.getData());
+		}
+		groupsMap.remove(group.getId());
+		data.remove(group);
+		fireModelChange();
+	}
+
+	public void removeFromGroup(Collection<GroupData> files) {
+		for (GroupData file : files) {
+			DataGroup group = file.getGroup();
+			group.removeData(file);
+			filesMap.remove(file.getData());
+			if (group.getData().isEmpty()) {
+				groupsMap.remove(group);
+				data.remove(group);
+			}
 		}
 		fireModelChange();
 	}
 
 	public void removeFilesFromGroup(Collection<File> files) {
 		for (File file : files) {
-			GroupFile fg = filesMap.get(file);
+			GroupData fg = filesMap.get(file);
 			if (fg != null) {
-				FileGroup group = fg.getGroup();
-				group.removeFile(fg);
+				DataGroup group = fg.getGroup();
+				group.removeData(fg);
 				filesMap.remove(file);
-				if (group.getFiles().isEmpty()) {
+				if (group.getData().isEmpty()) {
 					groupsMap.remove(group);
+					data.remove(group);
 				}
 			}
 		}
@@ -71,14 +91,14 @@ public class FileGroupModel extends AbstractSmartViewerModel {
 
 	@Override
 	public List<?> getItems() {
-		return new ArrayList<>(groupsMap.values());
+		return data;
 	}
 
 	@Override
 	public List<Object> getChildren(Object data) {
-		if (data instanceof FileGroup) {
-			FileGroup group = (FileGroup) data;
-			return castTo(group.getFiles(), Object.class);
+		if (data instanceof DataGroup) {
+			DataGroup group = (DataGroup) data;
+			return castTo(group.getData(), Object.class);
 		}
 		return Collections.emptyList();
 	}

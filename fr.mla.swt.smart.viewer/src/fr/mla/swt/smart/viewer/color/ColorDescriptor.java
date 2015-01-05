@@ -1,6 +1,6 @@
-package fr.mla.swt.smart.viewer.test;
+package fr.mla.swt.smart.viewer.color;
 
-public class GroupColor {
+public class ColorDescriptor {
 	public final int red;
 	public final int green;
 	public final int blue;
@@ -8,7 +8,7 @@ public class GroupColor {
 	public final float saturation;
 	public final float value;
 
-	public GroupColor(float h, float s, float v) {
+	public ColorDescriptor(float h, float s, float v) {
 		this.hue = h;
 		this.saturation = s;
 		this.value = v;

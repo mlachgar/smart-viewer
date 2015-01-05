@@ -1,6 +1,7 @@
 package fr.mla.swt.smart.viewer.test;
 
 import fr.mla.swt.smart.viewer.dnd.StringArrayTransfer;
+import fr.mla.swt.smart.viewer.group.DataGroup;
 
 public class FileGroupTransfer extends StringArrayTransfer {
 	private static FileGroupTransfer instance = new FileGroupTransfer();
@@ -16,8 +17,8 @@ public class FileGroupTransfer extends StringArrayTransfer {
 
 	@Override
 	protected String serializeItem(Object item) {
-		if (item instanceof FileGroup) {
-			FileGroup group = (FileGroup) item;
+		if (item instanceof DataGroup) {
+			DataGroup group = (DataGroup) item;
 			return group.getId();
 		}
 		return null;

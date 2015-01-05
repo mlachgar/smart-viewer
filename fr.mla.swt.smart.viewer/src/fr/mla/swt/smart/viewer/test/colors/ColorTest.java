@@ -1,4 +1,4 @@
-package fr.mla.swt.smart.viewer.test;
+package fr.mla.swt.smart.viewer.test.colors;
 
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
@@ -11,62 +11,48 @@ import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.events.PaintListener;
-import org.eclipse.swt.events.SelectionAdapter;
-import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.layout.RowLayout;
-import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Spinner;
 
-import fr.mla.swt.smart.viewer.ui.ColorCache;
+import fr.mla.swt.smart.viewer.color.ColorCache;
+import fr.mla.swt.smart.viewer.color.ColorDescriptor;
 
-public class CopyOfColorTest {
+public class ColorTest {
 
 	public static void main(String[] args) {
 		Display display = new Display();
 		Shell shell = new Shell(display);
 		GridLayout l = new GridLayout(2, true);
 		shell.setLayout(l);
-		final ColorModel model = new ColorModel();
+		int power = 5;
+		final int max = (int) Math.pow(2, power);
+		final ColorDescriptor[] colors = getColors(power, new float[] { 0f, 0.5f, 0.5f }, new float[] { 1f, 1f, 1f });
+
 		Composite cmp = new Composite(shell, SWT.NONE);
-		RowLayout rowLayout = new RowLayout();
-		rowLayout.center = true;
-		cmp.setLayout(rowLayout);
+		cmp.setLayout(new RowLayout());
 		cmp.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false, 2, 1));
-		final Spinner sp = new Spinner(cmp, SWT.NONE);
+		Spinner sp = new Spinner(cmp, SWT.NONE);
 		sp.setMinimum(2);
 		sp.setMaximum(10);
-		sp.setSelection(model.getPower());
-
-		final ColorParamComposite hParam = new ColorParamComposite(cmp, SWT.NONE, "Hue");
-		final ColorParamComposite sParam = new ColorParamComposite(cmp, SWT.NONE, "Stauration");
-		final ColorParamComposite bParam = new ColorParamComposite(cmp, SWT.NONE, "Brightness");
-
-		hParam.setRange(model.getMinH(), model.getMaxH());
-		sParam.setRange(model.getMinS(), model.getMaxS());
-		bParam.setRange(model.getMinB(), model.getMaxB());
-
-		Button button = new Button(cmp, SWT.FLAT);
-		button.setText("Generate");
 
 		final TableViewer colorTable = new TableViewer(shell, SWT.V_SCROLL | SWT.BORDER);
 		colorTable.setContentProvider(ArrayContentProvider.getInstance());
 		final ColorLabelProvider labelProvider = new ColorLabelProvider(display);
 		colorTable.setLabelProvider(labelProvider);
+		colorTable.setInput(colors);
 		TableLayout tableLayout = new TableLayout();
 		colorTable.getTable().setLayout(tableLayout);
 		colorTable.getTable().setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 		ColumnViewerToolTipSupport.enableFor(colorTable);
-
-		colorTable.setInput(model.getColors());
 
 		final Canvas wheelCanvas = new Canvas(shell, SWT.BORDER);
 		GridData canvasData = new GridData(SWT.CENTER, SWT.CENTER, true, true);
@@ -77,14 +63,9 @@ public class CopyOfColorTest {
 
 			@Override
 			public void paintControl(PaintEvent e) {
-				GroupColor[] colors = model.getColors();
-				if (colors == null) {
-					return;
-				}
 				Image image = new Image(e.display, 300, 300);
 				GC gc = new GC(image);
 				try {
-					int max = model.getSize();
 					int step = 360 / max;
 					gc.setAdvanced(true);
 					gc.setAntialias(SWT.ON);
@@ -93,15 +74,15 @@ public class CopyOfColorTest {
 					gc.setLineWidth(1);
 					for (int i = 0; i < colors.length; i++) {
 						gc.setBackground(labelProvider.cache.getColor(colors[i].red, colors[i].green, colors[i].blue));
-						gc.fillArc(2, 2, 296, 296, (int) (colors[i].hue * 360), step + 1);
+						gc.fillArc(0, 0, 300, 300, (int) (colors[i].hue * 360), step + 1);
 						// double t = colors[i].hue * 2 * Math.PI;
 						// gc.drawLine(150, 150, 150 + (int) (Math.cos(t) *
 						// 150.0), 150 + (int) (Math.sin(t) * 150.0));
 					}
 					StructuredSelection ss = (StructuredSelection) colorTable.getSelection();
 					Object element = ss.getFirstElement();
-					if (element instanceof GroupColor) {
-						GroupColor color = (GroupColor) element;
+					if (element instanceof ColorDescriptor) {
+						ColorDescriptor color = (ColorDescriptor) element;
 						float h = -color.hue;
 						double t0 = h * 2 * Math.PI;
 						double t1 = t0 - (2 * Math.PI / max);
@@ -110,24 +91,12 @@ public class CopyOfColorTest {
 						gc.drawLine(150, 150, 150 + (int) (Math.cos(t1) * 150.0), 150 + (int) (Math.sin(t1) * 150.0));
 					}
 
-					gc.drawOval(2, 2, 296, 296);
+					gc.drawOval(0, 0, 299, 299);
 				} finally {
 					e.gc.drawImage(image, -e.x, -e.y);
 					gc.dispose();
 					image.dispose();
 				}
-			}
-		});
-
-		button.addSelectionListener(new SelectionAdapter() {
-			@Override
-			public void widgetSelected(SelectionEvent e) {
-				model.setPower(sp.getSelection());
-				model.setMinValue(hParam.getMinValue(), sParam.getMinValue(), bParam.getMinValue());
-				model.setMaxValue(hParam.getMaxValue(), sParam.getMaxValue(), bParam.getMaxValue());
-				labelProvider.cache.dispose();
-				colorTable.setInput(model.getColors());
-				wheelCanvas.redraw();
 			}
 		});
 
@@ -148,6 +117,25 @@ public class CopyOfColorTest {
 		display.dispose();
 	}
 
+	private static ColorDescriptor[] getColors(int power, float[] minValue, float[] maxValue) {
+		int max = (int) Math.pow(2, power);
+		ColorDescriptor[] colors = new ColorDescriptor[max];
+		for (int i = 0; i < colors.length; i++) {
+			float h = 0f;
+			float s = minValue[1];
+			float b = minValue[2];
+			for (int p = 0; p < power; p++) {
+				int c = (int) Math.pow(2, p);
+				h += ((i / c) % 2) * (maxValue[0] - minValue[0]) / 2 / c;
+				s += ((i / c) % 2) * (maxValue[1] - minValue[1]) / 2 / c;
+				b += ((i / c) % 2) * (maxValue[2] - minValue[2]) / 2 / c;
+			}
+
+			colors[i] = new ColorDescriptor(h, s, b);
+		}
+		return colors;
+	}
+
 	private static class ColorLabelProvider extends ColumnLabelProvider {
 
 		private ColorCache cache;
@@ -163,8 +151,8 @@ public class CopyOfColorTest {
 
 		@Override
 		public Color getBackground(Object element) {
-			if (element instanceof GroupColor) {
-				GroupColor color = (GroupColor) element;
+			if (element instanceof ColorDescriptor) {
+				ColorDescriptor color = (ColorDescriptor) element;
 				return cache.getColor(color.red, color.green, color.blue);
 			}
 			return null;
