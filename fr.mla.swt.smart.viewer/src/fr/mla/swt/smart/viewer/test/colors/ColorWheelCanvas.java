@@ -15,12 +15,10 @@ import fr.mla.swt.smart.viewer.color.ColorModel;
 public class ColorWheelCanvas extends Canvas {
 
 	private ColorModel model;
-	private ColorCache cache;
 	private ColorDescriptor selectedColor;
 
 	public ColorWheelCanvas(Composite parent, int style, final ColorCache cache) {
 		super(parent, style);
-		this.cache = cache;
 		addPaintListener(new PaintListener() {
 
 			@Override
@@ -47,9 +45,6 @@ public class ColorWheelCanvas extends Canvas {
 								colors[i].green, colors[i].blue));
 						gc.fillArc(2, 2, 296, 296, (int) (colors[i].hue * 360),
 								step + 1);
-						// double t = colors[i].hue * 2 * Math.PI;
-						// gc.drawLine(150, 150, 150 + (int) (Math.cos(t) *
-						// 150.0), 150 + (int) (Math.sin(t) * 150.0));
 					}
 					if (selectedColor != null) {
 						float h = -selectedColor.hue;

@@ -74,6 +74,36 @@ public class DefaultRenderer implements SmartViewerRenderer {
 	@Override
 	public SmartViewerAction getActionAt(SmartViewer viewer,
 			SmartViewerItem item, int x, int y) {
+		List<SmartViewerAction> actions = item.getToolbarActions();
+		if (actions != null) {
+			for (SmartViewerAction action : actions) {
+				if (action.isVisible()) {
+					Rectangle bounds = (Rectangle) item.getExtraData(action);
+					if (bounds != null && bounds.contains(x, y)) {
+						return action;
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	protected void putTooltipData(SmartViewerItem item, Object data,
+			Rectangle bounds) {
+		item.putExtraData(bounds, data);
+	}
+
+	@Override
+	public Object getTooltipData(SmartViewer viewer, SmartViewerItem item,
+			int x, int y) {
+		for (Object key : item.getExtraDataKeys()) {
+			if (key instanceof Rectangle) {
+				Rectangle bounds = (Rectangle) key;
+				if (bounds.contains(x, y)) {
+					return item.getExtraData(key);
+				}
+			}
+		}
 		return null;
 	}
 

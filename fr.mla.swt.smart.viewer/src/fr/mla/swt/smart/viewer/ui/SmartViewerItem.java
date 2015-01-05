@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
@@ -106,8 +107,16 @@ public class SmartViewerItem {
 		dataMap.put(key, data);
 	}
 
+	public void clearExtraData() {
+		dataMap.clear();
+	}
+
 	public Object getExtraData(Object key) {
 		return dataMap.get(key);
+	}
+
+	public Set<Object> getExtraDataKeys() {
+		return dataMap.keySet();
 	}
 
 	public int getDepth() {

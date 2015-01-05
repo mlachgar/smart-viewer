@@ -115,6 +115,7 @@ public class FileGroupRenderer extends DefaultRenderer {
 	public void renderItem(GC gc, Rectangle paintBounds, SmartViewer viewer,
 			SmartViewerItem item) {
 		Object data = item.getData();
+		item.clearExtraData();
 		if (data instanceof NewGroupData) {
 			renderNewGroupItem(gc, paintBounds, item);
 		} else if (data instanceof DataGroup) {
@@ -162,6 +163,7 @@ public class FileGroupRenderer extends DefaultRenderer {
 						Rectangle actionBounds = new Rectangle(x, y,
 								imageBounds.width, imageBounds.height);
 						item.putExtraData(action, actionBounds);
+						putTooltipData(item, action.getText(), actionBounds);
 						if (cursorLoc != null
 								&& actionBounds.contains(cursorLoc.x,
 										cursorLoc.y)) {
@@ -259,20 +261,4 @@ public class FileGroupRenderer extends DefaultRenderer {
 		return img;
 	}
 
-	@Override
-	public SmartViewerAction getActionAt(SmartViewer viewer,
-			SmartViewerItem item, int x, int y) {
-		List<SmartViewerAction> actions = item.getToolbarActions();
-		if (actions != null) {
-			for (SmartViewerAction action : actions) {
-				if (action.isVisible()) {
-					Rectangle bounds = (Rectangle) item.getExtraData(action);
-					if (bounds != null && bounds.contains(x, y)) {
-						return action;
-					}
-				}
-			}
-		}
-		return null;
-	}
 }

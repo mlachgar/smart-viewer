@@ -59,6 +59,7 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 	private ScrollManager scrollManager = new DefaultScrollManager();
 	private SelectionManager selectionManager = new DefaultSelectionManager();
 	private DragAndDropManager dndManager;
+	private TooltipHandler tooltipHandler = new TooltipHandler();
 	private SmartViewerActionsProvider actionsProvider;
 	private final List<SmartViewerSelectionListener> selectionListeners = new ArrayList<>();
 	private final List<SmartViewerActionListener> actionListeners = new ArrayList<>();
@@ -211,6 +212,10 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 						break;
 					case SWT.MouseMove:
 						handleMouseMove(e, items);
+						handleItemTooltip(e, items);
+						break;
+					case SWT.MouseHover:
+						
 						break;
 					case SWT.MouseWheel:
 						break;
@@ -227,6 +232,7 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 		addListener(SWT.MouseUp, listener);
 		addListener(SWT.MouseDown, listener);
 		addListener(SWT.MouseMove, listener);
+		addListener(SWT.MouseHover, listener);
 		addListener(SWT.MouseEnter, listener);
 		addListener(SWT.MouseExit, listener);
 		addListener(SWT.MouseDoubleClick, listener);
@@ -572,6 +578,10 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 		this.actionsProvider = actionsProvider;
 	}
 
+	public void setTooltipHandler(TooltipHandler tooltipHandler) {
+		this.tooltipHandler = tooltipHandler;
+	}
+
 	public void updateScrolls() {
 		Rectangle area = super.getBounds();
 		if (!dataList.isEmpty()) {
@@ -705,6 +715,7 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 				item.setData(dataList.get(i), i);
 				item.setSelected(false);
 				item.clearChildren();
+				item.clearExtraData();
 			} else {
 				break;
 			}
@@ -807,6 +818,26 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 				}
 				return handleItemAction(e, item.getChildren());
 			}
+		}
+		return false;
+	}
+
+	public boolean handleItemTooltip(Event e, List<SmartViewerItem> items) {
+		if (tooltipHandler != null) {
+			for (final SmartViewerItem item : items) {
+				if (item.contains(e.x, e.y)) {
+					Object data = renderer.getTooltipData(this, item, e.x, e.y);
+					if (data != null) {
+						tooltipHandler.handleTooltip(this, data);
+						return true;
+					}
+					boolean found = handleItemTooltip(e, item.getChildren());
+					if (found) {
+						return true;
+					}
+				}
+			}
+			tooltipHandler.handleTooltip(this, null);
 		}
 		return false;
 	}

@@ -22,4 +22,6 @@ public interface SmartViewerRenderer {
 	public SmartViewerAction getActionAt(SmartViewer viewer,
 			SmartViewerItem item, int x, int y);
 
+	public Object getTooltipData(SmartViewer viewer, SmartViewerItem item, int x, int y);
+
 }
