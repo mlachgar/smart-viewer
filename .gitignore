@@ -1,12 +1,5 @@
 
-*.class
-
-*.snap
-
-*.xmi
-
-.metadata/
-
+.metadata
 bin/
 *.log
 *.index
