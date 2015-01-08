@@ -1,15 +1,11 @@
 package fr.mla.swt.smart.viewer.ui;
 
-import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Event;
 
-public class TooltipHandler {
+public interface TooltipHandler {
 
-	public void handleTooltip(SmartViewer viewer, Object data) {
-		Control control = viewer.getControl();
-		if (data != null) {
-			control.setToolTipText(data.toString());
-		} else {
-			control.setToolTipText(null);
-		}
-	}
+	public void handleTooltip(Event event, SmartViewerItem item, Object data);
+	
+	public void hideTooltip();
+
 }

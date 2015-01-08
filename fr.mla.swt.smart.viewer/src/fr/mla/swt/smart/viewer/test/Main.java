@@ -19,7 +19,7 @@ public class Main {
 
 		FilesGroupComposite composite = new FilesGroupComposite(shell, SWT.NONE);
 		composite.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
-		shell.setSize(1100, 800);
+		shell.setSize(1200, 1000);
 		shell.open();
 		composite.setFocus();
 		while (!shell.isDisposed()) {

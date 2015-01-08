@@ -11,8 +11,12 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.dnd.DragSourceEvent;
 import org.eclipse.swt.dnd.DropTargetEvent;
 import org.eclipse.swt.dnd.Transfer;
+import org.eclipse.swt.events.PaintEvent;
+import org.eclipse.swt.events.PaintListener;
 import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
 
@@ -24,26 +28,31 @@ import fr.mla.swt.smart.viewer.group.GroupData;
 import fr.mla.swt.smart.viewer.layout.SmartGridLayout;
 import fr.mla.swt.smart.viewer.model.CustomSmartViewerModel;
 import fr.mla.swt.smart.viewer.model.OrientationType;
+import fr.mla.swt.smart.viewer.ui.DefaultSelectionManager;
 import fr.mla.swt.smart.viewer.ui.SmartViewer;
 import fr.mla.swt.smart.viewer.ui.SmartViewerAction;
 import fr.mla.swt.smart.viewer.ui.SmartViewerActionListener;
 import fr.mla.swt.smart.viewer.ui.SmartViewerActionsProvider;
 import fr.mla.swt.smart.viewer.ui.SmartViewerCanvas;
 import fr.mla.swt.smart.viewer.ui.SmartViewerItem;
+import fr.mla.swt.smart.viewer.ui.SmartViewerSelectionListener;
 
 public class FilesGroupComposite extends Composite {
 
 	private SmartViewerCanvas listViewer;
 	private SmartViewerCanvas groupViewer;
+	private Canvas previewCanvas;
 	private CustomSmartViewerModel listModel;
 	private FileGroupModel groupModel;
+	private File selectedFile = null;
+	private File postSelectedFile = null;
 
 	public FilesGroupComposite(Composite parent, int style) {
 		super(parent, style);
 		setLayout(GridLayoutFactory.fillDefaults().spacing(0, 5).create());
-
 		listViewer = createListViewer(this);
 		groupViewer = createGroupViewer(this);
+		previewCanvas = createPreviewCanvas(this);
 
 		listViewer.setDragAndDropManager(new DragAndDropManager() {
 
@@ -180,7 +189,43 @@ public class FilesGroupComposite extends Composite {
 			}
 		});
 
+		listViewer.addSelectionListener(new SmartViewerSelectionListener() {
+
+			@Override
+			public void selctionChanged(SmartViewer viewer,
+					Collection<?> selectedData) {
+				selectedFile = getSelectedFile(selectedData);
+				previewCanvas.redraw();
+				previewCanvas.update();
+			}
+		});
+
+		listViewer.addPostSelectionListener(new SmartViewerSelectionListener() {
+
+			@Override
+			public void selctionChanged(SmartViewer viewer,
+					Collection<?> selectedData) {
+				postSelectedFile = getSelectedFile(selectedData);
+				previewCanvas.redraw();
+				previewCanvas.update();
+			}
+		});
 		groupViewer.refresh(true);
+	}
+
+	private File getSelectedFile(Collection<?> selectedData) {
+		if (selectedData != null && !selectedData.isEmpty()) {
+			Object selected = selectedData.iterator().next();
+			if (selected instanceof File) {
+				return (File) selected;
+			} else if (selected instanceof GroupData) {
+				GroupData groupData = (GroupData) selected;
+				if (groupData.getData() instanceof File) {
+					return (File) groupData.getData();
+				}
+			}
+		}
+		return null;
 	}
 
 	private SmartViewerAction newExpandGroupAction(final DataGroup group) {
@@ -306,7 +351,37 @@ public class FilesGroupComposite extends Composite {
 		viewer.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, false));
 		viewer.setRenderer(renderer);
 		viewer.setModel(groupModel);
+		viewer.setSelectionManager(new DefaultSelectionManager() {
+			@Override
+			protected boolean canSelect(SmartViewerItem item) {
+				return !(item.getData() instanceof NewGroupData);
+			}
+		});
 		return viewer;
 	}
 
+	private Canvas createPreviewCanvas(Composite parent) {
+		final FileGroupRenderer renderer = new FileGroupRenderer(
+				parent.getDisplay());
+		final Canvas canvas = new Canvas(parent, SWT.DOUBLE_BUFFERED);
+		canvas.setBackground(getDisplay().getSystemColor(SWT.COLOR_BLACK));
+		canvas.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+		canvas.addPaintListener(new PaintListener() {
+
+			@Override
+			public void paintControl(PaintEvent e) {
+				Rectangle area = canvas.getClientArea();
+				int width = area.width / 2 - 10;
+				if (selectedFile != null) {
+					renderer.drawImage(e.gc, selectedFile, area.x, area.y,
+							width, area.height);
+				}
+				if (postSelectedFile != null) {
+					renderer.drawImage(e.gc, postSelectedFile, area.x + width
+							+ 5, area.y, width, area.height);
+				}
+			}
+		});
+		return canvas;
+	}
 }

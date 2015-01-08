@@ -59,14 +59,17 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 	private ScrollManager scrollManager = new DefaultScrollManager();
 	private SelectionManager selectionManager = new DefaultSelectionManager();
 	private DragAndDropManager dndManager;
-	private TooltipHandler tooltipHandler = new TooltipHandler();
+	private TooltipHandler tooltipHandler;
 	private SmartViewerActionsProvider actionsProvider;
 	private final List<SmartViewerSelectionListener> selectionListeners = new ArrayList<>();
+	private final List<SmartViewerSelectionListener> postSelectionListeners = new ArrayList<>();
 	private final List<SmartViewerActionListener> actionListeners = new ArrayList<>();
 
 	protected final List<SmartViewerItem> items = new ArrayList<>();
 	protected final List<SmartViewerItem> hoverItems = new ArrayList<>();
 	private final Map<Object, SmartViewerItem> dataMap = new HashMap<>();
+
+	private boolean selectionChanged = false;
 
 	public SmartViewerCanvas(Composite parent, int style) {
 		super(parent, style);
@@ -79,6 +82,8 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 		setUpControlListener(parent);
 		setUpMouseListener();
 		setUpKeyListener();
+
+		tooltipHandler = new CustomTooltipHandler(this);
 
 		addDisposeListener(new DisposeListener() {
 
@@ -195,10 +200,16 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 					final SmartViewerItem item = getItemAt(e.x, e.y);
 					switch (e.type) {
 					case SWT.MouseUp:
-
+						if (selectionChanged) {
+							selectionChanged = false;
+							firePostSelectionChanged();
+						}
 						break;
 					case SWT.MouseDown:
 						handleMouseDown(e);
+						if (tooltipHandler != null) {
+							tooltipHandler.hideTooltip();
+						}
 						break;
 					case SWT.MouseEnter:
 						break;
@@ -209,13 +220,16 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 						if (vScroll.isVisible()) {
 							vScroll.mouseExit(e, true);
 						}
+						if (tooltipHandler != null) {
+							tooltipHandler.hideTooltip();
+						}
 						break;
 					case SWT.MouseMove:
+						hoverItems.clear();
 						handleMouseMove(e, items);
-						handleItemTooltip(e, items);
 						break;
 					case SWT.MouseHover:
-						
+						handleItemTooltip(e);
 						break;
 					case SWT.MouseWheel:
 						break;
@@ -389,6 +403,10 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 			}
 			break;
 		}
+		if (selectionChanged) {
+			selectionChanged = false;
+			firePostSelectionChanged();
+		}
 	}
 
 	protected void handleKeyPressed(final Event e) {
@@ -451,7 +469,7 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 						fireSelectionChanged();
 					}
 				} else {
-					if (selectionManager.selectOnly(nextItem, true)) {
+					if (selectionManager.selectOnly(nextItem, false)) {
 						showControl(nextItem);
 						fireSelectionChanged();
 					}
@@ -805,6 +823,28 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 				redraw(item);
 			}
 		}
+		if (tooltipHandler != null && hoverItems.isEmpty()) {
+			tooltipHandler.hideTooltip();
+		}
+	}
+
+	public void handleItemTooltip(Event e) {
+		if (tooltipHandler != null) {
+			if (!hoverItems.isEmpty()) {
+				for (int i = hoverItems.size() - 1; i >= 0; i--) {
+					SmartViewerItem item = hoverItems.get(i);
+					Object data = renderer.getTooltipData(this, item, e.x, e.y);
+					if (data != null) {
+						tooltipHandler.handleTooltip(e, item, data);
+						return;
+					}
+				}
+				tooltipHandler.handleTooltip(e,
+						hoverItems.get(hoverItems.size() - 1), null);
+			} else {
+				tooltipHandler.hideTooltip();
+			}
+		}
 	}
 
 	public boolean handleItemAction(Event e, List<SmartViewerItem> items) {
@@ -822,26 +862,6 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 		return false;
 	}
 
-	public boolean handleItemTooltip(Event e, List<SmartViewerItem> items) {
-		if (tooltipHandler != null) {
-			for (final SmartViewerItem item : items) {
-				if (item.contains(e.x, e.y)) {
-					Object data = renderer.getTooltipData(this, item, e.x, e.y);
-					if (data != null) {
-						tooltipHandler.handleTooltip(this, data);
-						return true;
-					}
-					boolean found = handleItemTooltip(e, item.getChildren());
-					if (found) {
-						return true;
-					}
-				}
-			}
-			tooltipHandler.handleTooltip(this, null);
-		}
-		return false;
-	}
-
 	public boolean addSelectionListener(SmartViewerSelectionListener l) {
 		return selectionListeners.add(l);
 	}
@@ -852,8 +872,24 @@ public class SmartViewerCanvas extends Canvas implements SmartViewer {
 
 	protected void fireSelectionChanged() {
 		redrawCanvas();
+		selectionChanged = true;
 		for (int i = selectionListeners.size() - 1; i >= 0; i--) {
 			selectionListeners.get(i).selctionChanged(this,
+					selectionManager.getSelectedData());
+		}
+	}
+
+	public boolean addPostSelectionListener(SmartViewerSelectionListener l) {
+		return postSelectionListeners.add(l);
+	}
+
+	public boolean removePostSelectionListener(SmartViewerSelectionListener l) {
+		return postSelectionListeners.remove(l);
+	}
+
+	protected void firePostSelectionChanged() {
+		for (int i = postSelectionListeners.size() - 1; i >= 0; i--) {
+			postSelectionListeners.get(i).selctionChanged(this,
 					selectionManager.getSelectedData());
 		}
 	}

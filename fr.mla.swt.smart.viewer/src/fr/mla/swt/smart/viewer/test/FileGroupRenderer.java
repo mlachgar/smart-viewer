@@ -69,30 +69,35 @@ public class FileGroupRenderer extends DefaultRenderer {
 			SmartViewerItem item) {
 		int width = item.getWidth();
 		int height = item.getHeight();
-		int x = item.getX() - paintBounds.x;
-		int y = item.getY() - paintBounds.y;
+		int x = item.getX();
+		int y = item.getY();
 		gc.setLineStyle(SWT.LINE_DASH);
 		gc.setBackground(background);
-		gc.fillRoundRectangle(x, y, width, height, 10, 10);
+		gc.fillRoundRectangle(x - paintBounds.x, y - paintBounds.y, width,
+				height, 10, 10);
 		gc.setLineWidth(1);
 		gc.setLineDash(new int[] { 5 });
 		gc.setForeground(gc.getDevice().getSystemColor(SWT.COLOR_WHITE));
-		gc.drawRoundRectangle(x, y, width, height, 10, 10);
+		gc.drawRoundRectangle(x - paintBounds.x, y - paintBounds.y, width,
+				height, 10, 10);
+		putTooltipData(item, "Drop images here to create new group",
+				new Rectangle(x, y, width, height));
 		Image image = Activator.getImage("plus_32.png");
 		if (image != null) {
 			Rectangle imageBounds = image.getBounds();
 			x += (item.getWidth() - imageBounds.width) / 2;
 			y += (item.getHeight() - imageBounds.height) / 2;
-			gc.drawImage(image, x, y);
+			gc.drawImage(image, x - paintBounds.x, y - paintBounds.y);
 		}
+		gc.setLineDash(null);
 	}
 
 	private void renderItemContent(GC gc, Rectangle paintBounds,
 			SmartViewerItem item) {
 		int width = item.getWidth() - 5;
 		int height = item.getHeight() - 5;
-		int x = item.getX() - paintBounds.x + 2;
-		int y = item.getY() - paintBounds.y + 2;
+		int x = item.getX() + 2;
+		int y = item.getY() + 2;
 		Object data = item.getData();
 		File file = null;
 		if (data instanceof GroupData) {
@@ -103,11 +108,19 @@ public class FileGroupRenderer extends DefaultRenderer {
 		}
 		if (file != null) {
 			if (file.isDirectory()) {
-				renderDirectory(gc, file, x, y, width, height, false);
+				renderDirectory(gc, file, x - paintBounds.x, y - paintBounds.y,
+						width, height, false);
 			} else {
-				renderFile(gc, file, item.getIndex(), x, y, width, height,
-						false);
+				renderFile(gc, file, item.getIndex(), x - paintBounds.x, y
+						- paintBounds.y, width, height, false);
 			}
+			putTooltipData(item, file, new Rectangle(x, y, width, height));
+		}
+		List<SmartViewerItem> children = item.getChildren();
+		for (SmartViewerItem child : children) {
+			renderItemBorder(gc, paintBounds,
+					gc.getDevice().getSystemColor(SWT.COLOR_BLACK), child);
+			renderItemContent(gc, paintBounds, child);
 		}
 	}
 
@@ -115,7 +128,7 @@ public class FileGroupRenderer extends DefaultRenderer {
 	public void renderItem(GC gc, Rectangle paintBounds, SmartViewer viewer,
 			SmartViewerItem item) {
 		Object data = item.getData();
-		item.clearExtraData();
+		clearTooltipData(item);
 		if (data instanceof NewGroupData) {
 			renderNewGroupItem(gc, paintBounds, item);
 		} else if (data instanceof DataGroup) {
@@ -124,25 +137,17 @@ public class FileGroupRenderer extends DefaultRenderer {
 			renderItemBorder(gc, paintBounds,
 					colorCache.getColor(color.red, color.green, color.blue),
 					item);
+			renderItemContent(gc, paintBounds, item);
 		} else {
 			renderItemBorder(gc, paintBounds,
 					gc.getDevice().getSystemColor(SWT.COLOR_BLACK), item);
-		}
-		List<SmartViewerItem> children = item.getChildren();
-		if (children.isEmpty()) {
 			renderItemContent(gc, paintBounds, item);
-		} else {
-			for (SmartViewerItem child : children) {
-				renderItemBorder(gc, paintBounds, gc.getDevice()
-						.getSystemColor(SWT.COLOR_BLACK), child);
-				renderItemContent(gc, paintBounds, child);
-			}
 		}
 		Control control = viewer.getControl();
 		Point cursorLoc = control.toControl(display.getCursorLocation());
-		if (item.contains(cursorLoc.x, cursorLoc.y)) {
-			renderActions(gc, paintBounds, viewer, item, cursorLoc);
-		}
+		// if (item.contains(cursorLoc.x, cursorLoc.y)) {
+		renderActions(gc, paintBounds, viewer, item, cursorLoc);
+		// }
 	}
 
 	private void renderActions(GC gc, Rectangle paintBounds,
@@ -218,7 +223,7 @@ public class FileGroupRenderer extends DefaultRenderer {
 		return false;
 	}
 
-	private void drawImage(GC gc, File file, int x, int y, int width, int height) {
+	public void drawImage(GC gc, File file, int x, int y, int width, int height) {
 		try {
 			String mimeType = Files.probeContentType(file.toPath());
 			if ("image/jpeg".equals(mimeType)) {
@@ -252,7 +257,7 @@ public class FileGroupRenderer extends DefaultRenderer {
 		return new Rectangle(0, 0, w, h);
 	}
 
-	private Image getImage(String fileName) {
+	public Image getImage(String fileName) {
 		Image img = imageRegistry.get(fileName);
 		if (img == null) {
 			img = new Image(display, fileName);
